@@ -64,11 +64,57 @@ def get_args():
     parser.add_argument('--use_indices', action='store_true', help='Use indices in the dataset')
     parser.add_argument('--dataset', type=str, default='cs_threshold_50', help='Dataset to use for training and validation. Default is "cs_threshold_50".')
     parser.add_argument('--checkpoint_path', type=str, default=None,
-                    help='Path to a checkpoint file to resume training or load model weights')
-
+                        help='Path to a checkpoint file to resume training or load model weights')
+    # NEW ARGS
+    parser.add_argument('--data_root', type=str, default=None,
+                        help='Root directory containing new SCF training data (default set automatically for server)')
+    parser.add_argument('--val_ratio', type=float, default=0.15,
+                        help='Validation split ratio')
+    parser.add_argument('--test_ratio', type=float, default=0.15,
+                        help='Test split ratio')
+    parser.add_argument('--split_seed', type=int, default=42,
+                        help='Random seed for dataset split')
     return parser.parse_args()
 
-def prepare_data(directory):
+def prepare_data(directories, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, seed=42):
+    """
+    Collect all .zarr files from a list of directories and perform a random split.
+    """
+    import random
+    all_files = []
+    for d in directories:
+        if not os.path.isdir(d):
+            print(f"Warning: directory not found -> {d}")
+            continue
+        all_files.extend(
+            [os.path.join(d, f) for f in os.listdir(d) if f.endswith('.zarr')]
+        )
+
+    all_files = sorted(list(set(all_files)))  # deduplicate + stable order
+    if len(all_files) == 0:
+        raise RuntimeError(f"No .zarr files found in: {directories}")
+
+    if abs(train_ratio + val_ratio + test_ratio - 1.0) > 1e-6:
+        raise ValueError("train_ratio + val_ratio + test_ratio must sum to 1.0")
+
+    random.seed(seed)
+    random.shuffle(all_files)
+
+    n = len(all_files)
+    n_train = int(train_ratio * n)
+    n_val   = int(val_ratio * n)
+    # Remainder goes to test
+    n_test  = n - n_train - n_val
+
+    train_files = all_files[:n_train]
+    val_files   = all_files[n_train:n_train + n_val]
+    test_files  = all_files[n_train + n_val:]
+
+    print(f"Total files: {n} | Train: {len(train_files)} | Val: {len(val_files)} | Test: {len(test_files)}")
+    return train_files, val_files, test_files
+
+
+def prepare_data_old(directory):
     
     l1c_files = [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith('.zarr')]
     # l2a_dir = f'{os.path.dirname(os.path.dirname(directory))}/l2a/{directory.split("/")[-1]}'  # Assuming the L2A directory is two levels up from the L1C directory
@@ -202,6 +248,10 @@ def main():
     args = get_args()
     # Initialize W&B logger
     # wandb_logger = WandbLogger(name=args.model_name, project='snowpatches_detect')
+    # if args.server == 'jasmin':
+    #     wandb_save_dir = 
+    # elif args.server == 'pentland':
+    #     wandb_logger = WandbLogger(name=args.model_name, project='snowpatches_detect')
 
     # Setup Weights & Biases Logger
     wandb_logger = WandbLogger(
@@ -216,24 +266,35 @@ def main():
             "batch_size": args.batch_size,
             # Include any other hyperparameters or metadata
         },
-        save_dir="/home/s2112771/r/1_DETECT/trained_models/unet/wandb/"  # Adjust the save directory as needed
+        save_dir="../wandb/"  # Adjust the save directory as needed
     )
-
     
     model_name = args.model_name
     
     if args.server == 'jasmin':
-        # directory = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/s2_labelled/l1c'
-        # directory = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/data/s2_labelled/l1c/cs_threshold_50'
-        
-        data_directory = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/data/s2_labelled/l1c'
-        # directory = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/data/s2_labelled/l1c/cs_threshold_50_plus'
+        default_data_root = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/data/s2_training_scf'
+        model_save_dir = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/unet/models/'
+        metrics_save_dir = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/unet/metrics/'
     elif args.server == 'pentland':
-        data_directory = '/home/s2112771/r/1_DETECT/data/training_data/s2/l1c'
-        # data_directory = '/home/s2112771/r/1_DETECT/data/training_data/s2/l1c/cs_threshold_50'
-        # data_directory = '/home/s2112771/r/1_DETECT/data/training_data/s2/l1c/cs_threshold_50_binary_local_mean_threshold_00_snowonly'
-        
-    train_files, val_files, test_files = prepare_data(f'{data_directory}/{args.dataset}')  # Adjust the directory path as needed
+        default_data_root = '/home/s2112771/r/1_DETECT/data/s2_training_scf'
+        model_save_dir = '/home/s2112771/r/1_DETECT/trained_models/unet/'
+        metrics_save_dir = '/home/s2112771/r/1_DETECT/trained_models/unet/metrics/'
+
+    data_root = args.data_root or default_data_root
+
+    # Directories to scan
+    data_directories = [
+        data_root,
+        os.path.join(data_root, 'original_training_set')
+    ]
+
+    train_files, val_files, test_files = prepare_data(
+        data_directories,
+        train_ratio=1.0 - args.val_ratio - args.test_ratio,
+        val_ratio=args.val_ratio,
+        test_ratio=args.test_ratio,
+        seed=args.split_seed
+    )
 
     # Define the bands and filepaths for your model
     # all_bands = ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12','QA10','QA20','QA60']
@@ -373,7 +434,7 @@ def main():
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         monitor="val_mae",  # monitor regression MAE
         mode="min",
-        dirpath="/home/s2112771/r/1_DETECT/trained_models/unet/model_checkpoints/",
+        dirpath=f"{model_save_dir}/checkpoints/",
         filename=f'{model_name}-{{epoch}}-{{val_mae:.4f}}'
     )
 
@@ -407,14 +468,9 @@ def main():
         trainer.fit(snow_model)
 
     # save the model
-    # trainer.save_checkpoint(f"/home/users/leamhowe/phd/1_DETECT/NeuralNetworks/unet/models/{model_name}.ckpt") # Example to save the final model
-    if args.server == 'jasmin':
-        trainer.save_checkpoint(f"/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/unet/models/{model_name}.ckpt")
-        trainer.save_checkpoint(f"/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/unet/models/{model_name}.ckpt") # Example to save the final model
-        torch.save(snow_model.state_dict(), f"/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/unet/models/{model_name}.pt")
-    elif args.server == 'pentland':
-        trainer.save_checkpoint(f"/home/s2112771/r/1_DETECT/trained_models/unet/checkpoints/{model_name}.ckpt")
-        torch.save(snow_model.state_dict(), f"/home/s2112771/r/1_DETECT/trained_models/unet/{model_name}.pt")
+    trainer.save_checkpoint(f"{model_save_dir}/checkpoints/{model_name}.ckpt")
+    torch.save(snow_model.state_dict(), f"{model_save_dir}/{model_name}.pt")
+
     # Optionally turn off W&B sync if the script is ending or you're running offline experiments
     wandb.finish()
 
@@ -468,7 +524,6 @@ def main():
     else:
         df = pd.DataFrame([{'mae': np.nan, 'rmse': np.nan}])
 
-    metrics_save_dir = '/home/s2112771/r/1_DETECT/trained_models/test_results'
     df.to_csv(os.path.join(metrics_save_dir, f"{model_name.split('.')[0]}_metrics.csv"))
     print(df)
 

@@ -2,7 +2,6 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import zarr
 import numpy as np
-from torchgeo.transforms import indices
 import torch.nn as nn
 
 ## AUGMENTATIONS
@@ -45,7 +44,8 @@ mins, maxs = (
 
 
 class Snows2Dataset(Dataset):
-    def __init__(self, files, bands, train=False, use_augmentations=False, mask_clouds=False, use_indices=True, rmcloud100=False, target_type: str = 'class'):
+    def __init__(self, files, bands, train=False, use_augmentations=False, mask_clouds=False,
+                 use_indices=True, rmcloud100=False, target_type: str = 'class'):
         """
         Args:
             files (list): List of file paths to zarr files.
@@ -65,59 +65,67 @@ class Snows2Dataset(Dataset):
         self.use_indices = use_indices
         self.rmcloud100 = rmcloud100
         self.target_type = target_type
-
-        # Duplicate when training with augmentations (original + augmented)
         self._should_duplicate = train and use_augmentations
 
     def __len__(self):
         return len(self.files) * 2 if self._should_duplicate else len(self.files)
 
+    def _load_base_bands(self, store, bands_requested):
+        """
+        Load requested bands from new flat Zarr structure.
+        """
+        # Determine spatial shape from first available array
+        shape_ref = None
+        for k in store.array_keys():
+            shape_ref = store[k].shape
+            break
+        if shape_ref is None:
+            raise RuntimeError("Empty Zarr store.")
+        H, W = shape_ref
+        data = np.zeros((len(bands_requested), H, W), dtype=np.float32)
+
+        for i, band in enumerate(bands_requested):
+            if band == 'NDSI':
+                # Compute on the fly: needs B3 & B11
+                if 'B3' in store and 'B11' in store:
+                    b3 = store['B3'][:].astype(np.float32)
+                    b11 = store['B11'][:].astype(np.float32)
+                    ndsi = (b3 - b11) / (b3 + b11 + 1e-6)
+                    data[i] = ndsi
+                else:
+                    raise KeyError("Cannot compute NDSI (need B3 and B11).")
+            elif band in store:
+                data[i] = store[band][:].astype(np.float32)
+            elif band == 'cs_cdf' and 'cs_cdf' in store:
+                data[i] = store['cs_cdf'][:].astype(np.float32)
+            elif band == 'cs' and 'cs' in store:
+                data[i] = store['cs'][:].astype(np.float32)
+            else:
+                raise KeyError(f"Requested band '{band}' not found in store.")
+        return data  # (C,H,W)
+
     def __getitem__(self, idx):
-        # Determine original vs augmented sample
         is_augmented = self._should_duplicate and idx >= len(self.files)
         original_idx = idx % len(self.files)
-
         zarr_path = self.files[original_idx]
-        zarr_store = zarr.open(zarr_path, mode='r')
+        store = zarr.open(zarr_path, mode='r')
 
-        # Load bands
-        bands_data = np.zeros((len(self.bands), 100, 100), dtype=np.float32)
-        for i, band in enumerate(self.bands):
-            if band in zarr_store['band'][:]:
-                band_index = list(zarr_store['band'][:]).index(band)
-                bands_data[i, :, :] = zarr_store['COPERNICUS/S2_HARMONIZED'][-1, band_index, :, :].astype(np.float32)
-            elif band == 'NDSI':
-                # Compute NDSI if possible
-                if 'B3' in zarr_store['band'][:] and 'B11' in zarr_store['band'][:]:
-                    b3_idx = list(zarr_store['band'][:]).index('B3')
-                    b11_idx = list(zarr_store['band'][:]).index('B11')
-                    b3 = zarr_store['COPERNICUS/S2_HARMONIZED'][-1, b3_idx, :, :].astype(np.float32)
-                    b11 = zarr_store['COPERNICUS/S2_HARMONIZED'][-1, b11_idx, :, :].astype(np.float32)
-                    ndsi = (b3 - b11) / (b3 + b11 + 1e-10)
-                    bands_data[i, :, :] = ndsi
-            elif band == 'cs_cdf' and 'cs_cdf' in zarr_store:
-                bands_data[i, :, :] = zarr_store['cs_cdf'][:, :].astype(np.float32)
-            elif band == 'SCL' and 'SCL' in zarr_store['band'][:]:
-                scl_index = list(zarr_store['band'][:]).index('SCL')
-                bands_data[i, :, :] = zarr_store['COPERNICUS/S2_HARMONIZED'][-1, scl_index, :, :].astype(np.float32)
+        # Load image bands
+        bands_data = self._load_base_bands(store, self.bands)  # (C,H,W)
 
         # Labels
-        labels_data = zarr_store['label'][:].astype(np.int64)
+        labels_data = store['label'][:].astype(np.int64)
 
-        # Optionally mask cloud pixels in the imagery
+        # Optional cloud masking (assumes clouds encoded as 200 for SCF target)
         if self.mask_clouds:
             cloud_value = 0 if self.target_type == 'class' else 200
             cloud_mask = labels_data == cloud_value
             if cloud_mask.any():
-                if self.rmcloud100:
-                    bands_data[:, cloud_mask] = -100.0
-                else:
-                    bands_data[:, cloud_mask] = 0.0
+                fill_val = -100.0 if self.rmcloud100 else 0.0
+                bands_data[:, cloud_mask] = fill_val
 
-        # Choose mask fill value for padding/augs
         mask_fill_value = 200 if self.target_type == 'scf' else (0 if (self.mask_clouds and not self.rmcloud100) else 1)
 
-        # Augmentations
         standard_augmentation = A.Compose([
             A.PadIfNeeded(min_height=128, min_width=128, border_mode=cv2.BORDER_CONSTANT, fill=0, fill_mask=mask_fill_value),
             ToTensorV2()
@@ -133,25 +141,51 @@ class Snows2Dataset(Dataset):
             ToTensorV2()
         ], additional_targets={'mask': 'mask'})
 
-        if is_augmented:
-            augmented_data = train_augmentation(image=bands_data.transpose(1, 2, 0), mask=labels_data)
-        else:
-            augmented_data = standard_augmentation(image=bands_data.transpose(1, 2, 0), mask=labels_data)
+        aug = train_augmentation if is_augmented else standard_augmentation
+        # Albumentations expects HWC
+        augmented = aug(image=bands_data.transpose(1, 2, 0), mask=labels_data)
 
-        image_tensor = augmented_data['image']
-        labels_tensor = augmented_data['mask'].long()
+        image_tensor = augmented['image']        # (C,H,W)
+        labels_tensor = augmented['mask'].long() # (H,W)
 
-        # Optionally append indices
+        # Optionally append derived indices (computed from already augmented values)
         if self.use_indices:
-            add_difference_indices = nn.Sequential(
-                indices.AppendNDBI(index_swir=12, index_nir=7),
-                indices.AppendNDSI(index_green=3, index_swir=12),
-                indices.AppendNDVI(index_nir=7, index_red=3),
-                indices.AppendNDWI(index_green=2, index_nir=7),
-            )
-            image_tensor = add_difference_indices(image_tensor).squeeze(0)
+            # Build a lookup for channel positions
+            channel_names = self.bands[:]  # original order
+            name_to_idx = {name: i for i, name in enumerate(channel_names)}
 
-        # Return both keys for trainer compatibility
+            def safe_get(b):
+                if b in name_to_idx:
+                    return image_tensor[name_to_idx[b]].float()
+                return None
+
+            extras = []
+            b3 = safe_get('B3')
+            b11 = safe_get('B11')
+            b8 = safe_get('B8')
+            b8a = safe_get('B8A')
+            b4 = safe_get('B4')
+
+            # NDVI
+            if b8 is not None and b4 is not None:
+                ndvi = (b8 - b4) / (b8 + b4 + 1e-6)
+                extras.append(ndvi.unsqueeze(0))
+            # NDSI (if not already a requested band)
+            if b3 is not None and b11 is not None and 'NDSI' not in channel_names:
+                ndsi = (b3 - b11) / (b3 + b11 + 1e-6)
+                extras.append(ndsi.unsqueeze(0))
+            # NDWI
+            if b3 is not None and b8 is not None:
+                ndwi = (b3 - b8) / (b3 + b8 + 1e-6)
+                extras.append(ndwi.unsqueeze(0))
+            # NDBI
+            if b11 is not None and b8 is not None:
+                ndbi = (b11 - b8) / (b11 + b8 + 1e-6)
+                extras.append(ndbi.unsqueeze(0))
+
+            if extras:
+                image_tensor = torch.cat([image_tensor] + extras, dim=0)
+
         return {"image": image_tensor, "label": labels_tensor, "mask": labels_tensor}
 
 
