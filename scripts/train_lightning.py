@@ -320,6 +320,16 @@ def main():
         # bands = ['B2', 'B3', 'B4', 'B9', 'B11']
         # bands = ['B2', 'B3', 'B4', 'B9', 'B11','NDSI', 'cs_cdf']
 
+    elif args.bands == 'all_spectral':
+        bands = ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12']
+    elif args.bands == 'lis':
+        bands = ['B3','B4','B11']
+    elif args.bands == 'wang':
+        bands = ['B2','B11','B4','B9']
+    elif args.bands == 'snow_relevant':
+        bands = ['B2', 'B3', 'B4', 'B8', 'B11', 'B12']
+    elif args.bands == 'all':
+        bands = ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12','QA10','QA20','QA60', 'cs_cdf']
     else:
         bands = []  # Default value if args.bands doesn't match any band combination
 
@@ -508,24 +518,26 @@ def main():
     # predictions_array = predictions.cpu().numpy().astype(int)
     # labels_array = labels.cpu().numpy().astype(int)
 
-    # Regression metrics on valid pixels (labels != 200)
-    import pandas as pd
-    import numpy as np
-    if len(predictions_list) > 0:
-        predictions = torch.cat(predictions_list, dim=0)
-        labels = torch.cat(labels_list, dim=0)
-        valid = (labels != 200)
-        y_true = labels[valid]
-        y_pred = predictions[valid]
-        mae = (y_pred - y_true).abs().mean().item()
-        rmse = float(torch.sqrt(((y_pred - y_true) ** 2).mean()).item())
-        print({'mae': mae, 'rmse': rmse})
-        df = pd.DataFrame([{'mae': mae, 'rmse': rmse}])
-    else:
-        df = pd.DataFrame([{'mae': np.nan, 'rmse': np.nan}])
+    if trainer.global_rank == 0:
+        # Regression metrics on valid pixels (labels != 200)
+        import pandas as pd
+        import numpy as np
+        if len(predictions_list) > 0:
+            predictions = torch.cat(predictions_list, dim=0)
+            labels = torch.cat(labels_list, dim=0)
 
-    df.to_csv(os.path.join(metrics_save_dir, f"{model_name.split('.')[0]}_metrics.csv"))
-    print(df)
+            valid = (labels != 200)
+            y_true = labels[valid]
+            y_pred = predictions[valid]
+            mae = (y_pred - y_true).abs().mean().item()
+            rmse = float(torch.sqrt(((y_pred - y_true) ** 2).mean()).item())
+            print({'mae': mae, 'rmse': rmse})
+            df = pd.DataFrame([{'mae': mae, 'rmse': rmse}])
+        else:
+            df = pd.DataFrame([{'mae': np.nan, 'rmse': np.nan}])
+
+        df.to_csv(os.path.join(metrics_save_dir, f"{model_name.split('.')[0]}_metrics.csv"))
+        print(df)
 
 
 if __name__ == "__main__":
