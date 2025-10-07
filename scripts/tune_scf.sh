@@ -6,7 +6,7 @@
 #SBATCH --partition=orchid
 #SBATCH --qos=orchid
 #SBATCH --cpus-per-task=24
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:1
 #SBATCH --time=24:00:00
 #SBATCH --mem=64GB
 

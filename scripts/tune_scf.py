@@ -130,7 +130,7 @@ def objective(trial, args):
         
         trainer = pl.Trainer(
             accelerator='gpu' if torch.cuda.is_available() else 'cpu',
-            devices=1,
+            # devices=1,
             max_epochs=args.epochs,
             logger=TensorBoardLogger(save_dir=log_dir, name="lightning_logs"),
             callbacks=[early_stop_callback],
