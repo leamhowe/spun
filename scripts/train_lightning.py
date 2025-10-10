@@ -74,9 +74,64 @@ def get_args():
                         help='Test split ratio')
     parser.add_argument('--split_seed', type=int, default=42,
                         help='Random seed for dataset split')
+    parser.add_argument('--split_file', type=str, default=None,
+                        help='Path to a CSV file defining train/val/test splits')
     return parser.parse_args()
 
-def prepare_data(directories, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, seed=42):
+import pandas as pd
+import os
+
+def prepare_data_from_split_file(split_csv_path):
+    """
+    Collects .zarr filepaths based on a pre-defined split file.
+
+    This function reads a CSV file which contains the definitive train, validation,
+    and test splits, ensuring a consistent and spatially-aware data setup.
+
+    Args:
+        split_csv_path (str): The path to the cleaned split CSV file 
+                              (e.g., 'dataset_splits_cleaned_reassigned.csv').
+
+    Returns:
+        tuple: A tuple containing three lists of filepaths:
+               (train_files, val_files, test_files).
+    """
+    # --- 1. Validate and Load the Split File ---
+    if not os.path.exists(split_csv_path):
+        raise FileNotFoundError(f"The specified split file was not found at: {split_csv_path}")
+
+    print(f"Loading data splits from: {split_csv_path}")
+    df = pd.read_csv(split_csv_path)
+
+    # Check for the expected column
+    if 'split_cleaned' in df.columns:
+
+        # --- 2. Filter Filepaths for Each Split ---
+        # Select rows for each category and convert the 'filepath' column to a list
+        train_files = df[df['split_cleaned'] == 'Train']['filepath'].tolist()
+        val_files = df[df['split_cleaned'] == 'Validation']['filepath'].tolist()
+        test_files = df[df['split_cleaned'] == 'Test']['filepath'].tolist()
+    elif 'split' in df.columns:
+        # If 'split' column exists, use it instead
+        train_files = df[df['split'] == 'Train']['filepath'].tolist()
+        val_files = df[df['split'] == 'Validation']['filepath'].tolist()
+        test_files = df[df['split'] == 'Test']['filepath'].tolist()
+    else:
+        raise ValueError(f"CSV file must contain a 'split_cleaned' or 'split' column.")
+
+    
+    # The 'Excluded' files are ignored and not returned.
+    
+    # --- 3. Print Summary and Return ---
+    total_files = len(train_files) + len(val_files) + len(test_files)
+    print(f"Total files loaded: {total_files} | Train: {len(train_files)} | Val: {len(val_files)} | Test: {len(test_files)}")
+
+    if not train_files or not val_files or not test_files:
+        print("Warning: One or more of the data splits is empty.")
+        
+    return train_files, val_files, test_files
+
+def prepare_data_random(directories, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, seed=42):
     """
     Collect all .zarr files from a list of directories and perform a random split.
     """
@@ -114,394 +169,32 @@ def prepare_data(directories, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, 
     return train_files, val_files, test_files
 
 
-def prepare_data_old(directory):
-    
-    l1c_files = [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith('.zarr')]
-    # l2a_dir = f'{os.path.dirname(os.path.dirname(directory))}/l2a/{directory.split("/")[-1]}'  # Assuming the L2A directory is two levels up from the L1C directory
-    l2a_dir = f'{os.path.dirname(os.path.dirname(directory))}/l2a/cs_threshold_50_binary_local_mean_threshold_00'  # Assuming the L2A directory is two levels up from the L1C directory
-    l2a_files = [os.path.join(l2a_dir, f) for f in os.listdir(l2a_dir) if f.endswith('.zarr')]
-
-    # Extract just the file names (without directory) for both lists
-    l1c_names = set(os.path.basename(f) for f in l1c_files)
-    l2a_names = set(os.path.basename(f) for f in l2a_files)
-
-    # Find the intersection (matching file names)
-    matching_names = l1c_names & l2a_names   
-
-    # Filter the original lists to keep only the matching files
-    all_files = [f for f in l1c_files if os.path.basename(f) in matching_names]
-
-
-
-    # all_files = [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith('.zarr')]
-    # subset_files = [f for f in all_files if 'nevis' not in f and ('cairngorms' in f or 'glencoe' in f)]
-
-    # Split the data based on the region specified in the filename
-    cairngorms_files = [f for f in all_files if 'cairngorms' in f]
-    train_files = cairngorms_files
-    # train_files = [f for f in all_files if 'nevis' not in f and ('cairngorms' in f or 'glencoe' in f)]
-    # train_files = [f for f in all_files if 'cairngorms' not in f and ('nevis' in f or 'glencoe' in f)]
-    # val_files = [f for f in all_files if 'cairngorms' not in f and ('nevis' in f or 'glencoe' in f)]
-    # val_files = [f for f in all_files if 'nevis' in f]
-    val_files = [f for f in all_files if 'glencoe' in f]
-    # val_files = cairngorms_files
-
-    # train_files = [f for f in all_files if 'glencoe' in f]
-    # val_files = [f for f in all_files if 'nevis' in f]
-
-    # # random split
-    # import random
-    # random.seed(42)  # For reproducibility
-    # random.shuffle(all_files)
-    # split_index = int(0.8 * len(all_files))  # 80% for training, 20% for validation
-    # train_files = all_files[:split_index]
-    # val_files = all_files[split_index:]
-
-    # import json
-    # def load_splits(save_dir):
-    #     with open(f"{save_dir}/train_files.json") as f:
-    #         train_files = json.load(f)
-    #     with open(f"{save_dir}/val_files.json") as f:
-    #         val_files = json.load(f)
-    #     return train_files, val_files
-    # train_files, val_files = load_splits('/home/s2112771/r/1_DETECT/unet/dataset_splits')
-
-    # train_files = [path.replace("cs_threshold_50", "cs_threshold_50_binary_local_mean_threshold_00") 
-    #          for path in train_files]
-    # val_files = [path.replace("cs_threshold_50", "cs_threshold_50_binary_local_mean_threshold_00") 
-    #          for path in val_files]
-
-    test_files = [f for f in all_files if 'nevis' in f]
-
-    return train_files, val_files, test_files
-
-
-# Define augmentations
-# def augmentation_pipeline(mask_fill_value=1, image_fill_value=0):
-#     """
-#     Define the augmentation pipeline using Albumentations.
-#     Args:
-#         mask_fill_value (int): Fill value for the mask during augmentation.
-#         image_fill_value (int): Fill value for the image during augmentation.
-#     Returns:
-#         A.Compose: An Albumentations Compose object containing the augmentation pipeline.
-#     """
-#     # Define the augmentation pipeline
-#     # Note: ToTensorV2() handles putting channels as the first dimension when converting back to tensor
-#     # and also converts numpy arrays to PyTorch tensors.
-#     return A.Compose([
-#     A.Resize(128,128),
-#     A.ShiftScaleRotate(p=0.9, fill_mask=mask_fill_value, fill=image_fill_value),
-#     A.HorizontalFlip(p=0.5),
-#     A.VerticalFlip(p=1),
-#     A.RandomGamma(gamma_limit=120, p=1), 
-#     ToTensorV2()  # Handles putting channels as the first dimension when converting back to tensor
-#     ], additional_targets={'image':'label'} #  This line ensures that the label is also transformed similarly to the image
-#     )
-
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
-import cv2
-# Define augmentations
-# def augmentation_pipeline(mask_fill_value=1, image_fill_value=0):
-#     """
-#     Define the augmentation pipeline using Albumentations.
-#     Args:
-#         mask_fill_value (int): Fill value for the mask during augmentation.
-#         image_fill_value (int): Fill value for the image during augmentation.
-#     Returns:
-#         A.Compose: An Albumentations Compose object containing the augmentation pipeline.
-#     """
-#     # Define the augmentation pipeline
-#     # Note: ToTensorV2() handles putting channels as the first dimension when converting back to tensor
-#     # and also converts numpy arrays to PyTorch tensors.
-#     return A.Compose([
-#         # A.PadIfNeeded(min_height=128, min_width=128, border_mode=cv2.BORDER_CONSTANT, fill=0),
-#         A.PadIfNeeded(min_height=128, min_width=128, border_mode=cv2.BORDER_REFLECT),
-#         A.Resize(height=128,width=128, #interpolation=cv2.INTER_NEAREST), # nearest neighbour interpolation best for masks and preserves spectral info
-#                 ),
-#         # A.ShiftScaleRotate(p=0.9, fill_mask=255),
-#         A.ShiftScaleRotate(p=0.9, border_mode=cv2.BORDER_REFLECT),
-#         A.HorizontalFlip(p=0.5),
-#         A.VerticalFlip(p=1),
-#         A.RandomGamma(gamma_limit=120, p=1), 
-#         # A.RandomGamma(gamma_limit=(80, 120), p=1), 
-#         # A.RandomContrast(p=1),
-#         # A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), contrast_limit=(-0.2, 0.2), brightness_by_max=False, always_apply=None, p=1),
-#         # A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=1),
-#         # A.RandomBrightnessContrast(
-#         #     # contrast_limit=0.1, 
-#         #     brightness_by_max=True, 
-#         #     p=1),
-#         ToTensorV2()  # Handles putting channels as the first dimension when converting back to tensor
-#         ], additional_targets={'image':'label'}
-#         # strict=True,
-#         # seed=137,
-#     )
-
-
 ################ MAIN CODE ##############################################################################################################################################################
 import wandb
 from pytorch_lightning.loggers import WandbLogger
+from src.snow_s2_dataset import Snows2Dataset
+from torch.utils.data import DataLoader
+import numpy as np
 
-def main():
-    args = get_args()
-    # Initialize W&B logger
-    # wandb_logger = WandbLogger(name=args.model_name, project='snowpatches_detect')
-    # if args.server == 'jasmin':
-    #     wandb_save_dir = 
-    # elif args.server == 'pentland':
-    #     wandb_logger = WandbLogger(name=args.model_name, project='snowpatches_detect')
+def test_model(trainer, snow_model, test_files, bands, args, metrics_save_dir):
+    """Run inference on the test set and save metrics."""
+    if not test_files:
+        print("Test file list is empty. Skipping inference.")
+        return
 
-    # Setup Weights & Biases Logger
-    wandb_logger = WandbLogger(
-        # project="snowpatches_detect",
-        project="spun_scf",
-        name=args.model_name,  # You can dynamically adjust this
-        config={
-            "learning_rate": args.lr,
-            "architecture": args.backbone,
-            # "dataset": "Specific-Dataset-Name",
-            "epochs": 1000,
-            "batch_size": args.batch_size,
-            # Include any other hyperparameters or metadata
-        },
-        save_dir="../wandb/"  # Adjust the save directory as needed
-    )
-    
-    model_name = args.model_name
-    
-    if args.server == 'jasmin':
-        default_data_root = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/data/s2_training_scf'
-        model_save_dir = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/unet/models/'
-        metrics_save_dir = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/unet/metrics/'
-    elif args.server == 'pentland':
-        default_data_root = '/home/s2112771/r/1_DETECT/data/s2_training_scf'
-        model_save_dir = '/home/s2112771/r/1_DETECT/trained_models/unet/'
-        metrics_save_dir = '/home/s2112771/r/1_DETECT/trained_models/unet/metrics/'
-
-    data_root = args.data_root or default_data_root
-
-    # Directories to scan
-    data_directories = [
-        data_root,
-        os.path.join(data_root, 'original_training_set')
-    ]
-
-    train_files, val_files, test_files = prepare_data(
-        data_directories,
-        train_ratio=1.0 - args.val_ratio - args.test_ratio,
-        val_ratio=args.val_ratio,
-        test_ratio=args.test_ratio,
-        seed=args.split_seed
-    )
-
-    # Define the bands and filepaths for your model
-    # all_bands = ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12','QA10','QA20','QA60']
-    # wang_bands = ['B2','B11','B4','B9']
-    # BANDS = list(zarr_store['band'][:]) 
-
-    # Define the bands and filepaths for your model
-    if args.bands == 'all_bands':
-        bands = ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12','QA10','QA20','QA60'] # All bands
-    elif args.bands == 'all_spectral_bands':
-        bands = ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12'] # All spectral bands
-    elif args.bands == 'wang_bands':
-        bands = ['B2','B11','B4','B9'] # Wang et al. (2020) band combination
-    elif args.bands == 'perm_threshold_01':
-        bands = ['B2', 'B3', 'B4', 'B5', 'B8A', 'B11', 'B12']
-    elif args.bands == 'custom_bands':
-        # bands = ['B2', 'B3', 'B4', 'B9', 'B11','SCL', 'MSK_CLDPRB', 'MSK_SNWPRB', 'NDSI']
-        # bands = ['B2', 'B3', 'B4', 'B9', 'B11','SCL', 'NDSI']
-        bands = ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12','QA10','QA20','QA60', 'NDSI', 'cs_cdf'] # All bands
-
-        # bands = ['B2', 'B3', 'B4', 'B5', 'B8A', 'B9', 'B11', 'B12']
-        # bands = ['B2', 'B3', 'B4', 'B5', 'B8A', 'B11', 'B12']
-        # bands = ['B2', 'B3', 'B4', 'B9', 'B11']
-        # bands = ['B2', 'B3', 'B4', 'B9', 'B11','NDSI', 'cs_cdf']
-
-    elif args.bands == 'all_spectral':
-        bands = ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12']
-    elif args.bands == 'lis':
-        bands = ['B3','B4','B11']
-    elif args.bands == 'wang':
-        bands = ['B2','B11','B4','B9']
-    elif args.bands == 'snow_relevant':
-        bands = ['B2', 'B3', 'B4', 'B8', 'B11', 'B12']
-    elif args.bands == 'all':
-        bands = ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12','QA10','QA20','QA60', 'cs_cdf']
-    else:
-        bands = []  # Default value if args.bands doesn't match any band combination
-
-    # ## AUGMENTATIONS
-    # import numpy as np
-    # from albumentations.core.transforms_interface import ImageOnlyTransform
-
-    # class MinMaxNormalize(ImageOnlyTransform):
-    #     """Normalize channels to the range [0, 1] using min/max values. Works with HWC numpy arrays."""
-
-    #     def __init__(self, mins, maxs, p=1.0):
-    #         super().__init__(p=p)
-    #         # Convert mins and maxs to numpy arrays and reshape to (1, 1, C)
-    #         self.mins = np.asarray(mins, dtype=np.float32).reshape(1, 1, -1)
-    #         self.maxs = np.asarray(maxs, dtype=np.float32).reshape(1, 1, -1)
-            
-    #     def apply(self, img: np.ndarray, **params) -> np.ndarray:
-    #         # img shape: (H, W, C)
-    #         return (img - self.mins) / (self.maxs - self.mins + 1e-10)
-        
-    #     def get_transform_init_args_names(self):
-    #         return ("mins", "maxs")
-
-    # # define mins and maxs for each band based on the dataset 
-    # from torch import Tensor
-    # mins, maxs = (
-    #     Tensor([993.0000, 682.6670, 460.6021, 288.6343, 287.0000, 289.0000, 334.0000,
-    #             310.7522, 288.0000,  99.0000,   7.0000, 155.0000,  90.0000,   0.0000,
-    #             0.0000,   0.0000]),
-    #     Tensor([10658.0000, 11470.4238, 11206.9004, 12399.5781, 12555.0000, 12712.0000,
-    #                         12884.0000, 13001.7539, 13062.0000,  8686.0000,  1186.0000,  8579.0000,
-    #                         7064.0000,     0.0000,     0.0000,  2048.0000])
-    # )
-
-    # # augmentations = augmentation_pipeline(mask_fill_value=args.mask_fill_value, image_fill_value=args.image_fill_value) if args.use_augmentations else None
-    # standard_augmentation = A.Compose([
-    #     MinMaxNormalize(mins= mins[:len(bands)], maxs=maxs[:len(bands)]),
-    #     # A.PadIfNeeded(min_height=128, min_width=128, border_mode=cv2.BORDER_CONSTANT, fill=0),
-    #     A.PadIfNeeded(min_height=128, min_width=128, border_mode=cv2.BORDER_REFLECT),
-    #     # A.Resize(height=128,width=128, #interpolation=cv2.INTER_NEAREST), # nearest neighbour interpolation best for masks and preserves spectral info
-    #     #         ),
-    #     ToTensorV2()  # Handles putting channels as the first dimension when converting back to tensor
-    #     ], additional_targets={'image':'label'}
-    #     )
-
-    # # If augmentations are used, define the augmentation pipeline
-    # if args.use_augmentations:
-    #     # Define train and validation augmentations
-    #     train_augmentation =  A.Compose([
-    #             MinMaxNormalize(mins= mins[:len(bands)], maxs=maxs[:len(bands)]),
-    #             # A.PadIfNeeded(min_height=128, min_width=128, border_mode=cv2.BORDER_CONSTANT, fill=0),
-    #             A.PadIfNeeded(min_height=128, min_width=128, border_mode=cv2.BORDER_REFLECT),
-    #             # A.Resize(height=128,width=128, #interpolation=cv2.INTER_NEAREST), # nearest neighbour interpolation best for masks and preserves spectral info
-    #             #         ),
-    #             # A.ShiftScaleRotate(p=0.9, fill_mask=255),
-    #             A.ShiftScaleRotate(p=0.9, border_mode=cv2.BORDER_REFLECT),
-    #             A.HorizontalFlip(p=0.5),
-    #             A.VerticalFlip(p=1),
-    #             # A.RandomGamma(gamma_limit=120, p=1), 
-    #             # A.RandomGamma(gamma_limit=(80, 120), p=1), 
-    #             # A.RandomContrast(p=1),
-    #             # A.RandomBrightnessContrast(brightness_limit=(-0.2, 0d.2), contrast_limit=(-0.2, 0.2), brightness_by_max=False, always_apply=None, p=1),
-    #             # A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=1),
-    #             # A.RandomBrightnessContrast(
-    #             #     # contrast_limit=0.1, 
-    #             #     brightness_by_max=True, 
-    #             #     p=1),
-    #             ToTensorV2()  # Handles putting channels as the first dimension when converting back to tensor
-    #             ], additional_targets={'image':'label'}
-    #     )
-
-    # else:
-    #     # If no augmentations are used, set train_augmentation to None
-    #     train_augmentation = standard_augmentation
-        
-    # val_augmentation = standard_augmentation  # Use standard augmentation for validation
-
-
-    
-    # Adjust arguments passed into SnowModel according to parsed arguments
-    model_hyperparams = {
-
-        "backbone": args.backbone,
-        "weights": args.weights,
-        "loss_fn": args.loss_fn,  # Cross-entropy loss
-        "loss_weighting": args.loss_weighting,
-        "snow_weight": args.snow_weight,
-        "snow_thresh": args.snow_thresh,
-        "ignore_value": args.ignore_value,
-        "lr": args.lr,
-        "batch_size": args.batch_size,
-        "patience": args.patience,
-        "num_workers": args.num_workers,  # Number of workers for DataLoader
-        # "train_augmentation": train_augmentation,
-        # "val_augmentation": val_augmentation
-    }
-    
-    # Instantiate the SnowModel
-    snow_model = SnowModel(
-        # bands=all_bands,
-        bands=bands,
-        train_files=train_files,
-        val_files=val_files,
-        mask_clouds=args.mask_clouds,  # Set to True if you want to mask clouds
-        use_augmentations=args.use_augmentations,
-        use_indices=args.use_indices,  # Set to True if you want to use spectral indices in the dataset
-        hparams = model_hyperparams,
-        # hparams={"backbone": "resnet34", "lr": 1e-4, "batch_size": 16}  # Example hyperparameters
-        # augmentation=augmentations
-    )
-
-    checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        monitor="val_mae",  # monitor regression MAE
-        mode="min",
-        dirpath=f"{model_save_dir}/checkpoints/",
-        filename=f'{model_name}-{{epoch}}-{{val_mae:.4f}}'
-    )
-
-
-    # Setup the EarlyStopping callback
-    early_stopping_callback = pl.callbacks.EarlyStopping(
-        monitor='val_mae',
-        min_delta=0.0,
-        patience=args.patience,
-        verbose=True,
-        mode='min'
-    )
-
-    # Set up the Trainer. Specify whether to use GPU and other training options.
-    accelerator = "gpu" if torch.cuda.is_available() else "cpu"
-
-    # Set up the Trainer. Specify whether to use GPU and other training options.
-    trainer = pl.Trainer(
-        accelerator=accelerator,
-        max_epochs=1000,
-        callbacks=[checkpoint_callback, early_stopping_callback],
-        # check_val_every_n_epochs = 1,
-        # progress_bar_refresh_rate=20,  # Frequency of progress bar update
-        logger=wandb_logger
-    )
-
-    # Fit the model
-    if args.checkpoint_path:
-        trainer.fit(snow_model, ckpt_path=args.checkpoint_path)
-    else:
-        trainer.fit(snow_model)
-
-    # save the model
-    trainer.save_checkpoint(f"{model_save_dir}/checkpoints/{model_name}.ckpt")
-    torch.save(snow_model.state_dict(), f"{model_save_dir}/{model_name}.pt")
-
-    # Optionally turn off W&B sync if the script is ending or you're running offline experiments
-    wandb.finish()
-
-    
-    
-    ### Inference on test data
-    from src.snow_s2_dataset import Snows2Dataset  # Adjust import as needed
-    # import torch
-    from torch.utils.data import DataLoader
-
+    print(f"\n--- Running inference on {len(test_files)} test files ---")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    snow_model.eval().to(device)
 
-
-    batch_size=140
-    mask_clouds = args.mask_clouds
-    use_indices = args.use_indices
-
-    snow_model.eval().to(device)  # Set the model to evaluation mode if needed
-
-    test_dataset = Snows2Dataset(test_files, bands=bands, mask_clouds=mask_clouds, use_indices=use_indices, target_type='scf')
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    test_dataset = Snows2Dataset(
+        test_files,
+        bands=bands,
+        mask_clouds=args.mask_clouds,
+        use_indices=args.use_indices,
+        target_type='scf'
+    )
+    # Use a larger batch size for inference if possible, and more workers
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size * 2, shuffle=False, num_workers=args.num_workers)
 
     predictions_list = []
     labels_list = []
@@ -515,29 +208,174 @@ def main():
             predictions_list.append(predictions.cpu())
             labels_list.append(labels.cpu())
 
-    # predictions_array = predictions.cpu().numpy().astype(int)
-    # labels_array = labels.cpu().numpy().astype(int)
-
     if trainer.global_rank == 0:
-        # Regression metrics on valid pixels (labels != 200)
-        import pandas as pd
-        import numpy as np
         if len(predictions_list) > 0:
             predictions = torch.cat(predictions_list, dim=0)
             labels = torch.cat(labels_list, dim=0)
 
-            valid = (labels != 200)
+            valid = (labels != args.ignore_value)
             y_true = labels[valid]
             y_pred = predictions[valid]
-            mae = (y_pred - y_true).abs().mean().item()
-            rmse = float(torch.sqrt(((y_pred - y_true) ** 2).mean()).item())
-            print({'mae': mae, 'rmse': rmse})
-            df = pd.DataFrame([{'mae': mae, 'rmse': rmse}])
-        else:
-            df = pd.DataFrame([{'mae': np.nan, 'rmse': np.nan}])
 
-        df.to_csv(os.path.join(metrics_save_dir, f"{model_name.split('.')[0]}_metrics.csv"))
-        print(df)
+            if y_true.numel() > 0:
+                mae = (y_pred - y_true).abs().mean().item()
+                rmse = float(torch.sqrt(((y_pred - y_true) ** 2).mean()).item())
+                metrics = {'mae': mae, 'rmse': rmse}
+            else:
+                metrics = {'mae': np.nan, 'rmse': np.nan}
+        else:
+            metrics = {'mae': np.nan, 'rmse': np.nan}
+
+        print("Test Metrics:", metrics)
+        df = pd.DataFrame([metrics])
+        metric_path = os.path.join(metrics_save_dir, f"{args.model_name.split('.')[0]}_test_metrics.csv")
+        df.to_csv(metric_path, index=False)
+        print(f"Test metrics saved to {metric_path}")
+
+
+def main():
+    args = get_args()
+
+    # Setup Weights & Biases Logger
+    wandb_logger = WandbLogger(
+        project="spun_scf",
+        name=args.model_name,
+        config=vars(args),
+        save_dir="../wandb/"
+    )
+    
+    # --- Setup Paths ---
+    if args.server == 'jasmin':
+        default_data_root = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/data/s2_training_scf'
+        model_save_dir = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/unet/models/'
+        metrics_save_dir = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/unet/metrics/'
+    elif args.server == 'pentland':
+        default_data_root = '/home/s2112771/r/1_DETECT/data/s2_training_scf'
+        model_save_dir = '/home/s2112771/r/1_DETECT/trained_models/unet/'
+        metrics_save_dir = '/home/s2112771/r/1_DETECT/trained_models/unet/metrics/'
+    else:
+        raise ValueError(f"Server '{args.server}' not recognized. Use 'jasmin' or 'pentland'.")
+
+    os.makedirs(os.path.join(model_save_dir, 'checkpoints'), exist_ok=True)
+    os.makedirs(metrics_save_dir, exist_ok=True)
+
+    # --- Prepare Data ---
+    if args.split_file:
+        # Use the definitive split file to prepare data
+        train_files, val_files, test_files = prepare_data_from_split_file(
+            split_csv_path=args.split_file
+        )
+    else:
+        # Perform a random split
+        print("No split file provided. Performing random split.")
+        data_root = args.data_root or default_data_root
+        data_directories = [
+            data_root,
+            # os.path.join(data_root, 'original_training_set')
+            os.path.join(data_root, 'original_training_set_snow_urban_water')
+        ]
+        train_files, val_files, test_files = prepare_data_random(
+            data_directories,
+            train_ratio=1.0 - args.val_ratio - args.test_ratio,
+            val_ratio=args.val_ratio,
+            test_ratio=args.test_ratio,
+            seed=args.split_seed
+        )
+
+    # --- Define Bands ---
+    band_options = {
+        'all_bands': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12','QA10','QA20','QA60'],
+        'all_spectral_bands': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12'],
+        'wang_bands': ['B2','B11','B4','B9'],
+        'perm_threshold_01': ['B2', 'B3', 'B4', 'B5', 'B8A', 'B11', 'B12'],
+        'custom_bands': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12','QA10','QA20','QA60', 'NDSI', 'cs_cdf'],
+        'all_spectral': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12'],
+        'lis': ['B3','B4','B11'],
+        'wang': ['B2','B11','B4','B9'],
+        'snow_relevant': ['B2', 'B3', 'B4', 'B8', 'B11', 'B12'],
+        'all': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12','QA10','QA20','QA60', 'cs_cdf']
+    }
+    bands = band_options.get(args.bands, [])
+    if not bands:
+        raise ValueError(f"Band selection '{args.bands}' is not a valid option.")
+    
+    # --- Configure Model ---
+    model_hyperparams = {
+        "backbone": args.backbone,
+        "weights": args.weights,
+        "loss_fn": args.loss_fn,
+        "loss_weighting": args.loss_weighting,
+        "snow_weight": args.snow_weight,
+        "snow_thresh": args.snow_thresh,
+        "ignore_value": args.ignore_value,
+        "lr": args.lr,
+        "batch_size": args.batch_size,
+        "patience": args.patience,
+        "num_workers": args.num_workers,
+    }
+    
+    snow_model = SnowModel(
+        bands=bands,
+        train_files=train_files,
+        val_files=val_files,
+        mask_clouds=args.mask_clouds,
+        use_augmentations=args.use_augmentations,
+        use_indices=args.use_indices,
+        hparams=model_hyperparams,
+    )
+
+    # --- Setup Callbacks ---
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(
+        monitor="val_mae",
+        mode="min",
+        dirpath=os.path.join(model_save_dir, 'checkpoints'),
+        filename=f'{args.model_name}-{{epoch}}-{{val_mae:.4f}}',
+        save_top_k=3,
+    )
+
+    early_stopping_callback = pl.callbacks.EarlyStopping(
+        monitor='val_mae',
+        patience=args.patience,
+        verbose=True,
+        mode='min'
+    )
+
+    # --- Train Model ---
+    accelerator = "gpu" if torch.cuda.is_available() else "cpu"
+    trainer = pl.Trainer(
+        accelerator=accelerator,
+        max_epochs=1000,
+        callbacks=[checkpoint_callback, early_stopping_callback],
+        logger=wandb_logger,
+        # strategy="ddp_find_unused_parameters_true" # Use if you get DDP errors
+    )
+
+    print("\n--- Starting model training ---")
+    trainer.fit(snow_model, ckpt_path=args.checkpoint_path)
+    print("--- Model training finished ---")
+
+    # --- Save Final Model ---
+    final_ckpt_path = os.path.join(model_save_dir, 'checkpoints', f"{args.model_name}_final.ckpt")
+    final_pt_path = os.path.join(model_save_dir, f"{args.model_name}_final.pt")
+    trainer.save_checkpoint(final_ckpt_path)
+    torch.save(snow_model.state_dict(), final_pt_path)
+    print(f"Final model checkpoint saved to: {final_ckpt_path}")
+    print(f"Final model state dict saved to: {final_pt_path}")
+
+    # --- Run Inference on Test Data ---
+    # Load the best model for testing
+    best_model_path = checkpoint_callback.best_model_path
+    if best_model_path:
+        print(f"\nLoading best model for testing from: {best_model_path}")
+        # The model is already loaded in snow_model if training just finished,
+        # but for clarity/robustness we can load from checkpoint.
+        snow_model = SnowModel.load_from_checkpoint(best_model_path)
+    else:
+        print("\nNo best model checkpoint found. Using the final trained model for testing.")
+
+    test_model(trainer, snow_model, test_files, bands, args, metrics_save_dir)
+
+    wandb.finish()
 
 
 if __name__ == "__main__":

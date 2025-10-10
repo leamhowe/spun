@@ -145,9 +145,12 @@ class SnowModel(pl.LightningModule):
         self.log('train_loss', metrics['loss'], prog_bar=True)
         self.log('train_mae', metrics['mae'])
         self.log('train_rmse', metrics['rmse'])
-        self.log('train_mae_snow', metrics['mae_snow'])
-        self.log('train_rmse_snow', metrics['rmse_snow'])
-        self.log('train_dice', metrics['dice'])
+        if 'mae_snow' in metrics:
+            self.log('train_mae_snow', metrics['mae_snow'])
+        if 'rmse_snow' in metrics:
+            self.log('train_rmse_snow', metrics['rmse_snow'])
+        if 'dice' in metrics:
+            self.log('train_dice', metrics['dice'])
 
         # Update accumulators
         valid = (y_raw != 200)
@@ -187,9 +190,12 @@ class SnowModel(pl.LightningModule):
         self.log('val_loss', metrics['loss'], prog_bar=True)
         self.log('val_mae', metrics['mae'])
         self.log('val_rmse', metrics['rmse'])
-        self.log('val_mae_snow', metrics['mae_snow'], prog_bar=True)
-        self.log('val_rmse_snow', metrics['rmse_snow'], prog_bar=True)
-        self.log('val_dice', metrics['dice'], prog_bar=True)
+        if 'mae_snow' in metrics:
+            self.log('val_mae_snow', metrics['mae_snow'], prog_bar=True)
+        if 'rmse_snow' in metrics:
+            self.log('val_rmse_snow', metrics['rmse_snow'], prog_bar=True)
+        if 'dice' in metrics:
+            self.log('val_dice', metrics['dice'], prog_bar=True)
 
         # Update accumulators
         valid = (y_raw != 200)
