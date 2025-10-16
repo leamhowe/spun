@@ -1,22 +1,26 @@
 import argparse
 import os
 import torch
+import pandas as pd
+import numpy as np
+import wandb
 
 import pytorch_lightning as pl
-import cv2
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
+from pytorch_lightning.loggers import WandbLogger
+from torch.utils.data import DataLoader
 
 import warnings
-warnings.filterwarnings("ignore", 
-                      category=UserWarning,
-                      message="The codec `vlen-utf8` is currently not part")
+warnings.filterwarnings("ignore",
+                        category=UserWarning,
+                        message="The codec `vlen-utf8` is currently not part")
 
-# Define which model to use
-
+# Import your corrected SnowModel class
 # from src.snowpatch_model import SnowModel
 from src.unet_torchgeo_lightning_trainer import SnowModel
 # from src.unet_torchgeo_PTwang import SnowModel
+
+# Import your dataset class
+from src.snow_s2_dataset import Snows2Dataset
 
 # Set matrix multiplication precision to 'high'
 torch.set_float32_matmul_precision('high')
@@ -30,10 +34,6 @@ def get_args():
     parser.add_argument('--bands', type=str, default='all_spectral_bands',
                         help='Specify the bands to use in the model')
     # Hyperparameters
-    # parser.add_argument('--backbone', type=str, default='resnet34',
-    #                     help='Backbone model for the UNet')
-    # parser.add_argument('--weights', type=str, default='imagenet',
-    #                     help='Pretrained weights for the backbone')
     parser.add_argument('--loss_fn', type=str, default='l1',
                         help="Regression loss: 'l1' (default), 'mse', or 'huber'")
     parser.add_argument('--loss_weighting', type=str, default='none',
@@ -50,6 +50,9 @@ def get_args():
                         help='Pretrained weights for the backbone')
     parser.add_argument('--lr', type=float, default=1e-3,
                         help='Initial learning rate')
+    # *** NEW ARGUMENT ***
+    parser.add_argument('--dice_thresh', type=float, default=0.5,
+                        help='Binarization threshold [0,1] for calculating Dice score.')
     parser.add_argument('--batch_size', type=int, default=16,
                         help='Batch size for training and validation')
     parser.add_argument('--patience', type=int, default=20,
@@ -78,56 +81,29 @@ def get_args():
                         help='Path to a CSV file defining train/val/test splits')
     return parser.parse_args()
 
-import pandas as pd
-import os
-
 def prepare_data_from_split_file(split_csv_path):
     """
     Collects .zarr filepaths based on a pre-defined split file.
-
-    This function reads a CSV file which contains the definitive train, validation,
-    and test splits, ensuring a consistent and spatially-aware data setup.
-
-    Args:
-        split_csv_path (str): The path to the cleaned split CSV file 
-                              (e.g., 'dataset_splits_cleaned_reassigned.csv').
-
-    Returns:
-        tuple: A tuple containing three lists of filepaths:
-               (train_files, val_files, test_files).
     """
-    # --- 1. Validate and Load the Split File ---
     if not os.path.exists(split_csv_path):
         raise FileNotFoundError(f"The specified split file was not found at: {split_csv_path}")
 
     print(f"Loading data splits from: {split_csv_path}")
     df = pd.read_csv(split_csv_path)
 
-    # Check for the expected column
-    if 'split_cleaned' in df.columns:
+    split_col = 'split_cleaned' if 'split_cleaned' in df.columns else 'split'
+    if split_col not in df.columns:
+        raise ValueError("CSV file must contain a 'split_cleaned' or 'split' column.")
 
-        # --- 2. Filter Filepaths for Each Split ---
-        # Select rows for each category and convert the 'filepath' column to a list
-        train_files = df[df['split_cleaned'] == 'Train']['filepath'].tolist()
-        val_files = df[df['split_cleaned'] == 'Validation']['filepath'].tolist()
-        test_files = df[df['split_cleaned'] == 'Test']['filepath'].tolist()
-    elif 'split' in df.columns:
-        # If 'split' column exists, use it instead
-        train_files = df[df['split'] == 'Train']['filepath'].tolist()
-        val_files = df[df['split'] == 'Validation']['filepath'].tolist()
-        test_files = df[df['split'] == 'Test']['filepath'].tolist()
-    else:
-        raise ValueError(f"CSV file must contain a 'split_cleaned' or 'split' column.")
-
+    train_files = df[df[split_col] == 'Train']['filepath'].tolist()
+    val_files = df[df[split_col] == 'Validation']['filepath'].tolist()
+    test_files = df[df[split_col] == 'Test']['filepath'].tolist()
     
-    # The 'Excluded' files are ignored and not returned.
-    
-    # --- 3. Print Summary and Return ---
     total_files = len(train_files) + len(val_files) + len(test_files)
     print(f"Total files loaded: {total_files} | Train: {len(train_files)} | Val: {len(val_files)} | Test: {len(test_files)}")
 
-    if not train_files or not val_files or not test_files:
-        print("Warning: One or more of the data splits is empty.")
+    if not train_files or not val_files:
+        print("Warning: One or more of the train/validation data splits is empty.")
         
     return train_files, val_files, test_files
 
@@ -145,7 +121,7 @@ def prepare_data_random(directories, train_ratio=0.7, val_ratio=0.15, test_ratio
             [os.path.join(d, f) for f in os.listdir(d) if f.endswith('.zarr')]
         )
 
-    all_files = sorted(list(set(all_files)))  # deduplicate + stable order
+    all_files = sorted(list(set(all_files)))
     if len(all_files) == 0:
         raise RuntimeError(f"No .zarr files found in: {directories}")
 
@@ -158,8 +134,6 @@ def prepare_data_random(directories, train_ratio=0.7, val_ratio=0.15, test_ratio
     n = len(all_files)
     n_train = int(train_ratio * n)
     n_val   = int(val_ratio * n)
-    # Remainder goes to test
-    n_test  = n - n_train - n_val
 
     train_files = all_files[:n_train]
     val_files   = all_files[n_train:n_train + n_val]
@@ -169,15 +143,11 @@ def prepare_data_random(directories, train_ratio=0.7, val_ratio=0.15, test_ratio
     return train_files, val_files, test_files
 
 
-################ MAIN CODE ##############################################################################################################################################################
-import wandb
-from pytorch_lightning.loggers import WandbLogger
-from src.snow_s2_dataset import Snows2Dataset
-from torch.utils.data import DataLoader
-import numpy as np
+################ MAIN CODE ##############################################################################
 
+# *** REFACTORED test_model FUNCTION ***
 def test_model(trainer, snow_model, test_files, bands, args, metrics_save_dir):
-    """Run inference on the test set and save metrics."""
+    """Run inference on the test set and save metrics by reusing model's internal logic."""
     if not test_files:
         print("Test file list is empty. Skipping inference.")
         return
@@ -193,41 +163,51 @@ def test_model(trainer, snow_model, test_files, bands, args, metrics_save_dir):
         use_indices=args.use_indices,
         target_type='scf'
     )
-    # Use a larger batch size for inference if possible, and more workers
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size * 2, shuffle=False, num_workers=args.num_workers)
 
-    predictions_list = []
-    labels_list = []
+    # Use the same accumulator structure as in the model
+    test_acc = snow_model._create_accumulator_dict()
 
     with torch.no_grad():
         for batch in test_loader:
             images = batch['image'].to(device)
-            labels = batch.get('mask', batch.get('label')).to(device).float()
-            outputs = snow_model(images)  # (N,1,H,W) in [0,1]
-            predictions = (outputs.squeeze(1) * 100.0)  # percent 0..100
-            predictions_list.append(predictions.cpu())
-            labels_list.append(labels.cpu())
+            labels_raw = batch.get('mask', batch.get('label')).to(device).float()
+            outputs = snow_model(images)
+            
+            # --- REUSE THE MODEL'S METRIC CALCULATION LOGIC ---
+            metrics = snow_model._calculate_metrics(outputs, labels_raw)
+            
+            # Update accumulators using the model's own helper function
+            snow_model._update_accumulators(test_acc, outputs, labels_raw, metrics)
 
     if trainer.global_rank == 0:
-        if len(predictions_list) > 0:
-            predictions = torch.cat(predictions_list, dim=0)
-            labels = torch.cat(labels_list, dim=0)
-
-            valid = (labels != args.ignore_value)
-            y_true = labels[valid]
-            y_pred = predictions[valid]
-
-            if y_true.numel() > 0:
-                mae = (y_pred - y_true).abs().mean().item()
-                rmse = float(torch.sqrt(((y_pred - y_true) ** 2).mean()).item())
-                metrics = {'mae': mae, 'rmse': rmse}
-            else:
-                metrics = {'mae': np.nan, 'rmse': np.nan}
+        # --- COMPUTE FINAL METRICS FROM ACCUMULATORS ---
+        final_metrics = {}
+        n = test_acc.get('n', 0)
+        if n > 0:
+            final_metrics['mae'] = test_acc['abs_err'] / n
+            final_metrics['rmse'] = (test_acc['sq_err'] / n)**0.5
         else:
-            metrics = {'mae': np.nan, 'rmse': np.nan}
+            final_metrics['mae'], final_metrics['rmse'] = np.nan, np.nan
 
-        print("Test Metrics:", metrics)
-        df = pd.DataFrame([metrics])
+        n_snow = test_acc.get('n_snow', 0)
+        if n_snow > 0:
+            final_metrics['mae_snow'] = test_acc['abs_err_snow'] / n_snow
+            final_metrics['rmse_snow'] = (test_acc['sq_err_snow'] / n_snow)**0.5
+        else:
+            final_metrics['mae_snow'], final_metrics['rmse_snow'] = np.nan, np.nan
+        
+        inter = test_acc.get('dice_inter', 0)
+        union = test_acc.get('dice_union', 0)
+        if union > 0:
+            # Use the model's smoothing constant for consistency
+            dice = (2. * inter + snow_model.dice_smooth) / (union + snow_model.dice_smooth)
+            final_metrics['dice'] = dice
+        else:
+            final_metrics['dice'] = np.nan
+
+        print("Test Metrics:", final_metrics)
+        df = pd.DataFrame([final_metrics])
         metric_path = os.path.join(metrics_save_dir, f"{args.model_name.split('.')[0]}_test_metrics.csv")
         df.to_csv(metric_path, index=False)
         print(f"Test metrics saved to {metric_path}")
@@ -261,17 +241,12 @@ def main():
 
     # --- Prepare Data ---
     if args.split_file:
-        # Use the definitive split file to prepare data
-        train_files, val_files, test_files = prepare_data_from_split_file(
-            split_csv_path=args.split_file
-        )
+        train_files, val_files, test_files = prepare_data_from_split_file(split_csv_path=args.split_file)
     else:
-        # Perform a random split
         print("No split file provided. Performing random split.")
         data_root = args.data_root or default_data_root
         data_directories = [
             data_root,
-            # os.path.join(data_root, 'original_training_set')
             os.path.join(data_root, 'original_training_set_snow_urban_water')
         ]
         train_files, val_files, test_files = prepare_data_random(
@@ -284,20 +259,16 @@ def main():
 
     # --- Define Bands ---
     band_options = {
-        'all_bands': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12','QA10','QA20','QA60'],
         'all_spectral_bands': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12'],
-        'wang_bands': ['B2','B11','B4','B9'],
-        'perm_threshold_01': ['B2', 'B3', 'B4', 'B5', 'B8A', 'B11', 'B12'],
-        'custom_bands': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12','QA10','QA20','QA60', 'NDSI', 'cs_cdf'],
-        'all_spectral': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12'],
+        'all_surface': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B11','B12'],
         'lis': ['B3','B4','B11'],
         'wang': ['B2','B11','B4','B9'],
         'snow_relevant': ['B2', 'B3', 'B4', 'B8', 'B11', 'B12'],
-        'all': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12','QA10','QA20','QA60', 'cs_cdf']
+        # Add other band options here
     }
-    bands = band_options.get(args.bands, [])
-    if not bands:
-        raise ValueError(f"Band selection '{args.bands}' is not a valid option.")
+    bands = band_options.get(args.bands)
+    if bands is None:
+        raise ValueError(f"Band selection '{args.bands}' is not a valid predefined option.")
     
     # --- Configure Model ---
     model_hyperparams = {
@@ -312,6 +283,7 @@ def main():
         "batch_size": args.batch_size,
         "patience": args.patience,
         "num_workers": args.num_workers,
+        "dice_thresh": args.dice_thresh,  # Pass the new argument
     }
     
     snow_model = SnowModel(
@@ -324,20 +296,20 @@ def main():
         hparams=model_hyperparams,
     )
 
-    # --- Setup Callbacks ---
+    # --- Setup Callbacks (Updated to monitor Dice score) ---
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        monitor="val_mae",
-        mode="min",
+        monitor="val_dice_epoch",
+        mode="max",
         dirpath=os.path.join(model_save_dir, 'checkpoints'),
-        filename=f'{args.model_name}-{{epoch}}-{{val_mae:.4f}}',
+        filename=f'{args.model_name}-{{epoch}}-{{val_dice_epoch:.4f}}',
         save_top_k=3,
     )
 
     early_stopping_callback = pl.callbacks.EarlyStopping(
-        monitor='val_mae',
+        monitor='val_dice_epoch',
         patience=args.patience,
         verbose=True,
-        mode='min'
+        mode='max'
     )
 
     # --- Train Model ---
@@ -354,30 +326,25 @@ def main():
     trainer.fit(snow_model, ckpt_path=args.checkpoint_path)
     print("--- Model training finished ---")
 
-    # --- Save Final Model ---
-    final_ckpt_path = os.path.join(model_save_dir, 'checkpoints', f"{args.model_name}_final.ckpt")
-    final_pt_path = os.path.join(model_save_dir, f"{args.model_name}_final.pt")
-    trainer.save_checkpoint(final_ckpt_path)
-    torch.save(snow_model.state_dict(), final_pt_path)
-    print(f"Final model checkpoint saved to: {final_ckpt_path}")
-    print(f"Final model state dict saved to: {final_pt_path}")
+    # --- Run Inference on Test Data (only on rank 0) ---
+    if trainer.global_rank == 0:
+        best_model_path = checkpoint_callback.best_model_path
+        
+        # Save final model state dict
+        final_pt_path = os.path.join(model_save_dir, f"{args.model_name}_final.pt")
+        torch.save(snow_model.state_dict(), final_pt_path)
+        print(f"Final model state dict saved to: {final_pt_path}")
 
-    # --- Run Inference on Test Data ---
-    # Load the best model for testing
-    best_model_path = checkpoint_callback.best_model_path
-    if best_model_path:
-        print(f"\nLoading best model for testing from: {best_model_path}")
-        # The model is already loaded in snow_model if training just finished,
-        # but for clarity/robustness we can load from checkpoint.
-        snow_model = SnowModel.load_from_checkpoint(best_model_path)
-    else:
-        print("\nNo best model checkpoint found. Using the final trained model for testing.")
+        if best_model_path and os.path.exists(best_model_path):
+            print(f"\nBest model checkpoint was saved to: {best_model_path}")
+            print("Using the model state automatically restored by the trainer for testing.")
+        else:
+            print("\nNo best model checkpoint was found. Using the final trained model state for testing.")
 
-    test_model(trainer, snow_model, test_files, bands, args, metrics_save_dir)
+        test_model(trainer, snow_model, test_files, bands, args, metrics_save_dir)
 
     wandb.finish()
 
 
 if __name__ == "__main__":
     main()
-

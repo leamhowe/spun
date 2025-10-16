@@ -3,6 +3,7 @@ import torch
 from torch.utils.data import DataLoader
 from src.snow_s2_dataset import Snows2Dataset
 import os
+import segmentation_models_pytorch as smp
 
 # Environment for geospatial libs if needed
 os.environ['PROJ_LIB'] = '/home/users/leamhowe/miniconda3/envs/torchgeeo/share/proj'
@@ -27,14 +28,6 @@ class SnowModel(pl.LightningModule):
             in_channels = len(self.train_dataset[0]['image'])
 
         # Build UNet directly via segmentation_models_pytorch
-        try:
-            import segmentation_models_pytorch as smp
-        except ImportError as e:
-            raise ImportError(
-                "segmentation_models_pytorch is required for SCF regression UNet.\n"
-                "Install it in your environment, e.g.: pip install segmentation-models-pytorch"
-            ) from e
-
         encoder_name = self.hparams.get('backbone', 'resnet50')
         encoder_weights = self.hparams.get('weights', None)  # e.g., 'imagenet' or None
         self.model = smp.Unet(
@@ -44,7 +37,7 @@ class SnowModel(pl.LightningModule):
             classes=1,
         )
 
-        # Loss
+        # Loss function
         loss_name = self.hparams.get('loss_fn', 'l1').lower()
         if loss_name == 'mse':
             self.crit = torch.nn.MSELoss(reduction='none')
@@ -53,16 +46,18 @@ class SnowModel(pl.LightningModule):
         else:
             self.crit = torch.nn.L1Loss(reduction='none')
 
+        # Constants for metrics
         self.eps = 1e-8
         self.dice_smooth = 1.0
+        self.dice_thresh = self.hparams.get('dice_thresh', 0.5)
 
         # Accumulators for epoch metrics
-        self._train_acc = {
-            'abs_err': 0.0, 'sq_err': 0.0, 'sum_y': 0.0, 'sum_y2': 0.0,
-            'sum_err': 0.0, 'n': 0, 'abs_err_snow': 0.0, 'sq_err_snow': 0.0, 'n_snow': 0,
-            'dice_inter': 0.0, 'dice_union': 0.0
-        }
-        self._val_acc = {
+        self._train_acc = self._create_accumulator_dict()
+        self._val_acc = self._create_accumulator_dict()
+
+    def _create_accumulator_dict(self):
+        """Helper to create a clean accumulator dictionary."""
+        return {
             'abs_err': 0.0, 'sq_err': 0.0, 'sum_y': 0.0, 'sum_y2': 0.0,
             'sum_err': 0.0, 'n': 0, 'abs_err_snow': 0.0, 'sq_err_snow': 0.0, 'n_snow': 0,
             'dice_inter': 0.0, 'dice_union': 0.0
@@ -73,14 +68,23 @@ class SnowModel(pl.LightningModule):
         return torch.sigmoid(self.model(x))
 
     def _calculate_metrics(self, y_hat, y_raw):
+        """
+        Calculates all metrics for a given batch.
+        Returns a dictionary with scalar metrics for step-logging and
+        raw components for epoch-level accumulation.
+        """
         # y_raw: (N,H,W) with 0..100 valid, 200=cloud/pad
         valid = (y_raw != 200)
         if not valid.any():
             z = y_hat.new_tensor(0.0)
-            return {"loss": z, "mae": z, "rmse": z, "mae_snow": z}
+            return {
+                "loss": z, "mae": z, "rmse": z, "mae_snow": z, "rmse_snow": z,
+                "dice": z, "dice_intersection": z, "dice_union": z
+            }
 
         y = (y_raw.clamp(0, 100) / 100.0).unsqueeze(1)
-        
+        valid_mask = valid.unsqueeze(1)
+
         # --- Loss Calculation ---
         loss_map = self.crit(y_hat, y)
         
@@ -102,38 +106,69 @@ class SnowModel(pl.LightningModule):
                 loss_map = loss_map * weights
 
         # Final loss on valid pixels
-        loss = loss_map[valid.unsqueeze(1)].mean()
+        loss = loss_map[valid_mask].mean()
 
         # --- Metric Calculation (unweighted) ---
-        err = (y_hat - y).abs()
+        err = (y_hat - y)
+        abs_err = err.abs()
+        sq_err = err.pow(2)
         
-        # Overall MAE
-        mae = err[valid.unsqueeze(1)].mean()
+        # Overall MAE and RMSE
+        mae = abs_err[valid_mask].mean()
+        rmse = torch.sqrt(sq_err[valid_mask].mean() + self.eps)
         
-        # Overall RMSE
-        rmse = torch.sqrt(((y_hat - y) ** 2)[valid.unsqueeze(1)].mean() + self.eps)
-        
-        # MAE on snow pixels only
-        snow_pixels = (y > 0) & valid.unsqueeze(1)
+        # MAE and RMSE on snow pixels only
+        snow_pixels = (y > 0) & valid_mask
         if snow_pixels.any():
-            mae_snow = err[snow_pixels].mean()
-            rmse_snow = torch.sqrt(((y_hat - y) ** 2)[snow_pixels].mean() + self.eps)
+            mae_snow = abs_err[snow_pixels].mean()
+            rmse_snow = torch.sqrt(sq_err[snow_pixels].mean() + self.eps)
         else:
-            mae_snow = y_hat.new_tensor(0.0) # No snow pixels in this batch
+            mae_snow = y_hat.new_tensor(0.0)
             rmse_snow = y_hat.new_tensor(0.0)
 
         # --- Dice Score Calculation ---
-        # Use a threshold to binarize predictions and labels for Dice
-        dice_thresh = 0.5 # Example threshold, can be tuned
-        y_hat_bin = (y_hat > dice_thresh).float()
-        y_bin = (y > dice_thresh).float()
+        y_hat_bin = (y_hat > self.dice_thresh).float()
+        y_bin = (y > self.dice_thresh).float()
 
-        # Intersection and union for Dice, on valid pixels
-        intersection = (y_hat_bin * y_bin)[valid.unsqueeze(1)].sum()
-        union = y_hat_bin[valid.unsqueeze(1)].sum() + y_bin[valid.unsqueeze(1)].sum()
-        dice = (2. * intersection + self.dice_smooth) / (union + self.dice_smooth)
+        intersection = (y_hat_bin * y_bin)[valid_mask].sum()
+        union = y_hat_bin[valid_mask].sum() + y_bin[valid_mask].sum()
+        
+        # Dice score for this batch (for step-level logging)
+        batch_dice = (2. * intersection + self.dice_smooth) / (union + self.dice_smooth)
 
-        return {"loss": loss, "mae": mae, "rmse": rmse, "mae_snow": mae_snow, "rmse_snow": rmse_snow, "dice": dice}
+        return {
+            "loss": loss, "mae": mae, "rmse": rmse, "mae_snow": mae_snow, "rmse_snow": rmse_snow,
+            "dice": batch_dice,
+            "dice_intersection": intersection,
+            "dice_union": union
+        }
+
+    def _update_accumulators(self, acc, y_hat, y_raw, metrics):
+        """Helper to update the accumulator dictionaries."""
+        valid = (y_raw != 200)
+        if not valid.any():
+            return
+        
+        y = (y_raw.clamp(0, 100) / 100.0).unsqueeze(1)
+        v = valid.unsqueeze(1)
+        err = (y_hat - y)
+        
+        acc['abs_err'] += err.abs()[v].sum().item()
+        acc['sq_err'] += (err.pow(2))[v].sum().item()
+        acc['sum_y'] += y[v].sum().item()
+        acc['sum_y2'] += (y[v].pow(2)).sum().item()
+        acc['sum_err'] += err[v].sum().item()
+        acc['n'] += int(v.sum().item())
+        
+        # For epoch-level Dice
+        acc['dice_inter'] += metrics['dice_intersection'].item()
+        acc['dice_union'] += metrics['dice_union'].item()
+
+        snow_pixels = (y > 0) & v
+        if snow_pixels.any():
+            acc['abs_err_snow'] += err.abs()[snow_pixels].sum().item()
+            acc['sq_err_snow'] += (err.pow(2))[snow_pixels].sum().item()
+            acc['n_snow'] += int(snow_pixels.sum().item())
 
     def training_step(self, batch, batch_idx):
         x = batch['image']
@@ -145,39 +180,11 @@ class SnowModel(pl.LightningModule):
         self.log('train_loss', metrics['loss'], prog_bar=True)
         self.log('train_mae', metrics['mae'])
         self.log('train_rmse', metrics['rmse'])
-        if 'mae_snow' in metrics:
-            self.log('train_mae_snow', metrics['mae_snow'])
-        if 'rmse_snow' in metrics:
-            self.log('train_rmse_snow', metrics['rmse_snow'])
-        if 'dice' in metrics:
-            self.log('train_dice', metrics['dice'])
+        self.log('train_mae_snow', metrics['mae_snow'])
+        self.log('train_rmse_snow', metrics['rmse_snow'])
+        self.log('train_dice_step', metrics['dice']) # Log per-step dice
 
-        # Update accumulators
-        valid = (y_raw != 200)
-        if valid.any():
-            y = (y_raw.clamp(0, 100) / 100.0).unsqueeze(1)
-            v = valid.unsqueeze(1)
-            err = (y_hat - y)
-            self._train_acc['abs_err'] += err.abs()[v].sum().item()
-            self._train_acc['sq_err'] += (err.pow(2))[v].sum().item()
-            self._train_acc['sum_y'] += y[v].sum().item()
-            self._train_acc['sum_y2'] += (y[v].pow(2)).sum().item()
-            self._train_acc['sum_err'] += err[v].sum().item()
-            self._train_acc['n'] += int(v.sum().item())
-            
-            # For epoch-level Dice
-            dice_thresh = 0.5
-            y_hat_bin = (y_hat > dice_thresh).float()
-            y_bin = (y > dice_thresh).float()
-            self._train_acc['dice_inter'] += (y_hat_bin * y_bin)[v].sum().item()
-            self._train_acc['dice_union'] += (y_hat_bin[v].sum() + y_bin[v].sum()).item()
-
-            snow_pixels = (y > 0) & v
-            if snow_pixels.any():
-                self._train_acc['abs_err_snow'] += err.abs()[snow_pixels].sum().item()
-                self._train_acc['sq_err_snow'] += (err.pow(2))[snow_pixels].sum().item()
-                self._train_acc['n_snow'] += int(snow_pixels.sum().item())
-
+        self._update_accumulators(self._train_acc, y_hat, y_raw, metrics)
         return metrics['loss']
 
     def validation_step(self, batch, batch_idx):
@@ -190,95 +197,48 @@ class SnowModel(pl.LightningModule):
         self.log('val_loss', metrics['loss'], prog_bar=True)
         self.log('val_mae', metrics['mae'])
         self.log('val_rmse', metrics['rmse'])
-        if 'mae_snow' in metrics:
-            self.log('val_mae_snow', metrics['mae_snow'], prog_bar=True)
-        if 'rmse_snow' in metrics:
-            self.log('val_rmse_snow', metrics['rmse_snow'], prog_bar=True)
-        if 'dice' in metrics:
-            self.log('val_dice', metrics['dice'], prog_bar=True)
+        self.log('val_mae_snow', metrics['mae_snow'], prog_bar=True)
+        self.log('val_rmse_snow', metrics['rmse_snow'], prog_bar=True)
+        self.log('val_dice_step', metrics['dice'], prog_bar=True) # Log per-step dice
 
-        # Update accumulators
-        valid = (y_raw != 200)
-        if valid.any():
-            y = (y_raw.clamp(0, 100) / 100.0).unsqueeze(1)
-            v = valid.unsqueeze(1)
-            err = (y_hat - y)
-            self._val_acc['abs_err'] += err.abs()[v].sum().item()
-            self._val_acc['sq_err'] += (err.pow(2))[v].sum().item()
-            self._val_acc['sum_y'] += y[v].sum().item()
-            self._val_acc['sum_y2'] += (y[v].pow(2)).sum().item()
-            self._val_acc['sum_err'] += err[v].sum().item()
-            self._val_acc['n'] += int(v.sum().item())
-
-            # For epoch-level Dice
-            dice_thresh = 0.5
-            y_hat_bin = (y_hat > dice_thresh).float()
-            y_bin = (y > dice_thresh).float()
-            self._val_acc['dice_inter'] += (y_hat_bin * y_bin)[v].sum().item()
-            self._val_acc['dice_union'] += (y_hat_bin[v].sum() + y_bin[v].sum()).item()
-
-            snow_pixels = (y > 0) & v
-            if snow_pixels.any():
-                self._val_acc['abs_err_snow'] += err.abs()[snow_pixels].sum().item()
-                self._val_acc['sq_err_snow'] += (err.pow(2))[snow_pixels].sum().item()
-                self._val_acc['n_snow'] += int(snow_pixels.sum().item())
-
+        self._update_accumulators(self._val_acc, y_hat, y_raw, metrics)
         return metrics['loss']
 
     def on_train_epoch_end(self):
-        n = self._train_acc.get('n', 0)
-        if n > 0:
-            mae = self._train_acc['abs_err'] / n
-            self.log('train_mae_epoch', mae)
-            # ... other metrics ...
-        
-        n_snow = self._train_acc.get('n_snow', 0)
-        if n_snow > 0:
-            mae_snow = self._train_acc['abs_err_snow'] / n_snow
-            rmse_snow = (self._train_acc['sq_err_snow'] / n_snow)**0.5
-            self.log('train_mae_snow_epoch', mae_snow)
-            self.log('train_rmse_snow_epoch', rmse_snow)
-        
-        # Calculate and log epoch-level Dice
-        inter = self._train_acc.get('dice_inter', 0)
-        union = self._train_acc.get('dice_union', 0)
-        if union > 0:
-            dice = (2. * inter + self.dice_smooth) / (union + self.dice_smooth)
-            self.log('train_dice_epoch', dice)
+        self._log_epoch_metrics(self._train_acc, 'train')
 
     def on_validation_epoch_end(self):
-        n = self._val_acc.get('n', 0)
+        self._log_epoch_metrics(self._val_acc, 'val')
+
+    def _log_epoch_metrics(self, acc, prefix):
+        """Helper to compute and log metrics at the end of an epoch."""
+        n = acc.get('n', 0)
         if n > 0:
-            mae = self._val_acc['abs_err'] / n
-            rmse = (self._val_acc['sq_err'] / n) ** 0.5
-            self.log('val_mae_epoch', mae, prog_bar=True)
-            self.log('val_rmse_epoch', rmse)
-            # ... other metrics ...
+            mae = acc['abs_err'] / n
+            rmse = (acc['sq_err'] / n)**0.5
+            self.log(f'{prefix}_mae_epoch', mae, prog_bar=(prefix=='val'))
+            self.log(f'{prefix}_rmse_epoch', rmse)
 
-        n_snow = self._val_acc.get('n_snow', 0)
+        n_snow = acc.get('n_snow', 0)
         if n_snow > 0:
-            mae_snow = self._val_acc['abs_err_snow'] / n_snow
-            rmse_snow = (self._val_acc['sq_err_snow'] / n_snow)**0.5
-            self.log('val_mae_snow_epoch', mae_snow, prog_bar=True)
-            self.log('val_rmse_snow_epoch', rmse_snow, prog_bar=True)
-
-        # Calculate and log epoch-level Dice
-        inter = self._val_acc.get('dice_inter', 0)
-        union = self._val_acc.get('dice_union', 0)
+            mae_snow = acc['abs_err_snow'] / n_snow
+            rmse_snow = (acc['sq_err_snow'] / n_snow)**0.5
+            self.log(f'{prefix}_mae_snow_epoch', mae_snow, prog_bar=(prefix=='val'))
+            self.log(f'{prefix}_rmse_snow_epoch', rmse_snow, prog_bar=(prefix=='val'))
+        
+        # Calculate and log final epoch-level Dice
+        inter = acc.get('dice_inter', 0)
+        union = acc.get('dice_union', 0)
         if union > 0:
             dice = (2. * inter + self.dice_smooth) / (union + self.dice_smooth)
-            self.log('val_dice_epoch', dice)
+            self.log(f'{prefix}_dice_epoch', dice, prog_bar=(prefix=='val'))
 
     def on_train_epoch_start(self):
         # Reset accumulators at the start of each epoch
-        for acc in [self._train_acc, self._val_acc]:
-            for k in acc:
-                acc[k] = 0.0 if isinstance(acc[k], float) else 0
+        self._train_acc = self._create_accumulator_dict()
 
     def on_validation_epoch_start(self):
-        # It's good practice to also reset val accumulator here if you have one
-        for k in self._val_acc:
-            self._val_acc[k] = 0.0 if isinstance(self._val_acc[k], float) else 0
+        self._val_acc = self._create_accumulator_dict()
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.hparams['batch_size'],

@@ -40,6 +40,7 @@ def get_band_list(selection_name):
     """Returns a list of bands based on a selection name."""
     band_options = {
         'all_spectral': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12'],
+        'all_surface': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B11','B12'], # B10 cirrus contains no surface info
         'lis':['B3','B4','B11'],
         'wang': ['B2','B11','B4','B9'],
         'snow_relevant': ['B2', 'B3', 'B4', 'B8', 'B11', 'B12'],
@@ -53,7 +54,7 @@ def objective(trial, args, train_files, val_files):
     A 'trial' represents one set of hyperparameters.
     """
     # --- 1. Suggest hyperparameters ---
-    band_selection = trial.suggest_categorical("band_selection", ["all_spectral", "lis", "wang", "snow_relevant", "all"])
+    band_selection = trial.suggest_categorical("band_selection", ["all_spectral", "all_surface", "lis", "wang", "snow_relevant", "all"])
     bands = get_band_list(band_selection)
     use_augmentations = trial.suggest_categorical("use_augmentations", [True, False])
     use_indices = trial.suggest_categorical("use_indices", [True, False])
@@ -62,7 +63,7 @@ def objective(trial, args, train_files, val_files):
     loss_weighting = trial.suggest_categorical("loss_weighting", ["none", "binary", "linear"])
     # Only suggest snow_weight if a weighting strategy is used
     if loss_weighting != "none":
-        snow_weight = trial.suggest_float("snow_weight", 1.5, 20.0, log=True)
+        snow_weight = trial.suggest_float("snow_weight", 1.5, 5.0, 20.0, log=True)
     else:
         snow_weight = 1.0 # Default value, not used
 
