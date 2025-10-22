@@ -7,7 +7,7 @@ import segmentation_models_pytorch as smp
 import torch.nn as nn
 
 # Import the torchgeo weights enums
-from torchgeo.models import ResNet50_Weights 
+from torchgeo.models import ResNet50_Weights, ResNet152_Weights
 
 # Environment for geospatial libs if needed
 os.environ['PROJ_LIB'] = '/home/users/leamhowe/miniconda3/envs/torchgeeo/share/proj'
@@ -109,12 +109,33 @@ class SnowModel(pl.LightningModule):
                     torchgeo_weights_enum = ResNet50_Weights.SENTINEL2_RGB_MOCO
                 
                 elif weights_str == 'sentinel2_all_dino':
-                    if not encoder_name.startswith('vit_small'):
-                        raise ValueError(f"Backbone '{encoder_name}' not compatible with 'sentinel2_all_dino' weights (requires 'vit_small...').")
+                    if not encoder_name.startswith('resnet50'):
+                        raise ValueError(f"Backbone '{encoder_name}' not compatible with 'sentinel2_all_dino' weights (requires 'resnet50').")
                     if in_channels != 13:
                         print(f"Warning: 'sentinel2_all_dino' weights expect 13 input channels, but model has {in_channels}.")
-                    torchgeo_weights_enum = ViTSmall_Weights.SENTINEL2_ALL_DINO
+                    torchgeo_weights_enum = ResNet50_Weights.SENTINEL2_ALL_DINO
+
+                elif weights_str == 'sentinel2_all_decur':
+                    if not encoder_name.startswith('resnet50'):
+                        raise ValueError(f"Backbone '{encoder_name}' not compatible with 'sentinel2_all_decur' weights (requires 'resnet50').")
+                    if in_channels != 13:
+                        print(f"Warning: 'sentinel2_all_decur' weights expect 13 input channels, but model has {in_channels}.")
+                    torchgeo_weights_enum = ResNet50_Weights.SENTINEL2_ALL_DECUR
                 
+                elif weights_str == 'sentinel2_softcon':
+                    if not encoder_name.startswith('resnet50'):
+                        raise ValueError(f"Backbone '{encoder_name}' not compatible with 'sentinel2_softcon' weights (requires 'resnet50').")
+                    if in_channels != 13:
+                        print(f"Warning: 'sentinel2_softcon' weights expect 13 input channels, but model has {in_channels}.")
+                    torchgeo_weights_enum = ResNet50_Weights.SENTINEL2_ALL_SOFTCON
+
+                elif weights_str == 'satlas_ms':
+                    if not encoder_name.startswith('resnet152'):
+                        raise ValueError(f"Backbone '{encoder_name}' not compatible with 'satlas_ms' weights (requires 'resnet152').")
+                    if in_channels != 9:
+                        print(f"Warning: 'satlas_ms' weights expect 9 input channels, but model has {in_channels}.")
+                    torchgeo_weights_enum = ResNet152_Weights.SENTINEL2_SI_MS_SATLAS
+
                 else:
                     print(f"Warning: Unrecognized torchgeo weights string '{weights_str}'. No weights loaded.")
 

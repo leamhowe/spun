@@ -74,7 +74,7 @@ def objective(trial, args, train_files, val_files):
         "weights": trial.suggest_categorical("weights", ["imagenet", None]),
         "loss_fn": trial.suggest_categorical("loss_fn", ["l1", "mse", "huber"]),
         "optimizer": trial.suggest_categorical("optimizer", ["Adam", "RMSprop"]),
-        "num_workers": int(os.environ.get('SLURM_CPUS_PER_TASK', 4)),
+        "num_workers": int(os.environ.get('SLURM_CPUS_PER_TASK', 24)),
         "patience": args.patience,
         "loss_weighting": loss_weighting,
         "snow_weight": snow_weight,

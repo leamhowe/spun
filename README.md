@@ -101,3 +101,7 @@ python train_lightning.py --model_name quick_test --bands all_spectral_bands
 
 
 ## my dump
+python train_lightning_combloss.py --model_name 20251021_torchgeo_combloss_NOIGNORE_S2SplitsClean_BAllSpectral_PTWS2AllMoco_WBin10_pat50_lr1e-4_pad0_run001 --bands all_spectral_bands --split_file /home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv --weights sentinel2_all_moco --num_workers 24 --patience 50 --lr 1e-4 --batch_size 8 --snow_weight 10 --loss_weighting binary --train_with_clouds
+
+
+python train_lightning_combloss.py --model_name 20251022_torchgeo_combloss_NOIGNORE_S2SplitsClean_Bsatlas_PTWSatlasMs_WInLin10_pat50_lr1e-4_pad0_run001 --bands satlas_ms --backbone resnet152  --weights satlas_ms --num_workers 24 --patience 50 --lr 1e-4 --batch_size 8 --snow_weight 10 --loss_weighting inverse_linear --train_with_clouds --split_file /home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv

@@ -268,12 +268,15 @@ def main():
 
     # --- Define Bands ---
     band_options = {
-        'all_spectral_bands': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12'],
+        'rgb': ['B4','B3','B2'],
+        'all_spectral': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12'],
         'all_surface': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B11','B12'],
-        'lis': ['B3','B4','B11'],
+        'lis':['B3','B4','B11'],
         'wang': ['B2','B11','B4','B9'],
         'snow_relevant': ['B2', 'B3', 'B4', 'B8', 'B11', 'B12'],
-        # Add other band options here
+        'snow_and_clouds': ['B2', 'B3', 'B4', 'B8', 'B11', 'B12', 'cs', 'cs_cdf'],
+        'all': ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12','QA10','QA20','QA60','cs','cs_cdf'],
+        'satlas_ms': ['B2','B3','B4','B5','B6','B7','B8','B11','B12']
     }
     bands = band_options.get(args.bands)
     if bands is None:
