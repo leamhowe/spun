@@ -40,17 +40,17 @@ def get_args():
                         help="Per-pixel weighting: 'none'|'binary'|'linear' to emphasize snow")
     parser.add_argument('--snow_weight', type=float, default=5.0,
                         help='Weight for snow pixels (binary) or 1+alpha (linear)')
-    parser.add_argument('--snow_thresh', type=float, default=0.05,
+    parser.add_argument('--snow_thresh', type=float, default=0.5,
                         help='Snow threshold in [0,1] for binary weighting')
-    parser.add_argument('--ignore_value', type=float, default=200.0,
+    parser.add_argument('--ignore_value', type=float, default=200,
                         help='Ignore value in labels (cloud/pad)')
+    parser.add_argument('--train_with_clouds', action='store_true', help='Include clouds in training.')
     parser.add_argument('--backbone', type=str, default='resnet50',
                         help='Backbone model for the UNet')
     parser.add_argument('--weights', type=str, default=None,
                         help='Pretrained weights for the backbone')
     parser.add_argument('--lr', type=float, default=1e-3,
                         help='Initial learning rate')
-    # *** NEW ARGUMENT ***
     parser.add_argument('--dice_thresh', type=float, default=0.5,
                         help='Binarization threshold [0,1] for calculating Dice score.')
     parser.add_argument('--batch_size', type=int, default=16,
@@ -293,6 +293,7 @@ def main():
         mask_clouds=args.mask_clouds,
         use_augmentations=args.use_augmentations,
         use_indices=args.use_indices,
+        train_with_clouds=args.train_with_clouds,
         hparams=model_hyperparams,
     )
 

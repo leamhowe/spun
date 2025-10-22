@@ -14,10 +14,10 @@ warnings.filterwarnings("ignore",
                         category=UserWarning,
                         message="The codec `vlen-utf8` is currently not part")
 
-# Import your corrected SnowModel class
-# from src.snowpatch_model import SnowModel
-from src.unet_torchgeo_lightning_trainer import SnowModel
-# from src.unet_torchgeo_PTwang import SnowModel
+# Import your NEW MERGED SnowModel class
+# Make sure you save the file above as 'unet_torchgeo_combloss_trainer.py'
+# or update this import path to match.
+from src.unet_torchgeo_combloss_lightning_trainer import SnowModel 
 
 # Import your dataset class
 from src.snow_s2_dataset import Snows2Dataset
@@ -27,7 +27,7 @@ torch.set_float32_matmul_precision('high')
 
 def get_args():
     parser = argparse.ArgumentParser(description="Run UNet model training.")
-    parser.add_argument('--model_name', type=str, default='unet_torchgeo_default',
+    parser.add_argument('--model_name', type=str, default='unet_torchgeo_combloss',
                         help='Model name for saving outputs')
     parser.add_argument('--use_augmentations', action='store_true', 
                         help='Flag to enable image augmentations')
@@ -37,17 +37,23 @@ def get_args():
     parser.add_argument('--loss_fn', type=str, default='l1',
                         help="Regression loss: 'l1' (default), 'mse', or 'huber'")
     parser.add_argument('--loss_weighting', type=str, default='none',
-                        help="Per-pixel weighting: 'none'|'binary'|'linear' to emphasize snow")
+                        help="Per-pixel weighting: 'none'|'binary'|'linear' | 'inverse_linear' to emphasize snow")
     parser.add_argument('--snow_weight', type=float, default=5.0,
                         help='Weight for snow pixels (binary) or 1+alpha (linear)')
     parser.add_argument('--snow_thresh', type=float, default=0.05,
                         help='Snow threshold in [0,1] for binary weighting')
-    parser.add_argument('--ignore_value', type=float, default=200.0,
+    
+    # --- UPDATED/ADDED ARGS ---
+    parser.add_argument('--ignore_value', type=int, default=200,
                         help='Ignore value in labels (cloud/pad)')
+    parser.add_argument('--train_with_clouds', action='store_true', 
+                        help='Include clouds in training (relabel as 0% SCF).')
+    # --- END UPDATES ---
+    
     parser.add_argument('--backbone', type=str, default='resnet50',
                         help='Backbone model for the UNet')
     parser.add_argument('--weights', type=str, default=None,
-                        help='Pretrained weights for the backbone')
+                        help='Pretrained weights for the backbone (e.g., sentinel2_all_moco)')
     parser.add_argument('--lr', type=float, default=1e-3,
                         help='Initial learning rate')
     parser.add_argument('--dice_thresh', type=float, default=0.5,
@@ -146,7 +152,6 @@ def prepare_data_random(directories, train_ratio=0.7, val_ratio=0.15, test_ratio
 
 ################ MAIN CODE ##############################################################################
 
-# *** REFACTORED test_model FUNCTION ***
 def test_model(trainer, snow_model, test_files, bands, args, metrics_save_dir):
     """Run inference on the test set and save metrics by reusing model's internal logic."""
     if not test_files:
@@ -157,12 +162,14 @@ def test_model(trainer, snow_model, test_files, bands, args, metrics_save_dir):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     snow_model.eval().to(device)
 
+    # Test dataset should NOT train with clouds, so we don't pass train_with_clouds
     test_dataset = Snows2Dataset(
         test_files,
         bands=bands,
         mask_clouds=args.mask_clouds,
         use_indices=args.use_indices,
-        target_type='scf'
+        target_type='scf',
+        train_with_clouds=False # Explicitly set to False for testing
     )
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size * 2, shuffle=False, num_workers=args.num_workers)
 
@@ -176,6 +183,7 @@ def test_model(trainer, snow_model, test_files, bands, args, metrics_save_dir):
             outputs = snow_model(images)
             
             # --- REUSE THE MODEL'S METRIC CALCULATION LOGIC ---
+            # This will now return loss_reg, loss_dice, etc.
             metrics = snow_model._calculate_metrics(outputs, labels_raw)
             
             # Update accumulators using the model's own helper function
@@ -272,6 +280,7 @@ def main():
         raise ValueError(f"Band selection '{args.bands}' is not a valid predefined option.")
     
     # --- Configure Model ---
+    # This hparams dict now contains all args for both features
     model_hyperparams = {
         "backbone": args.backbone,
         "weights": args.weights,
@@ -288,6 +297,7 @@ def main():
         "dice_loss_weight": args.dice_loss_weight
     }
     
+    # --- UPDATED MODEL INSTANTIATION ---
     snow_model = SnowModel(
         bands=bands,
         train_files=train_files,
@@ -295,12 +305,14 @@ def main():
         mask_clouds=args.mask_clouds,
         use_augmentations=args.use_augmentations,
         use_indices=args.use_indices,
+        train_with_clouds=args.train_with_clouds, # <-- ADDED THIS
         hparams=model_hyperparams,
     )
+    # --- END UPDATE ---
 
     # --- Setup Callbacks (Updated to monitor Dice score) ---
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        monitor="val_dice_epoch",
+        monitor="val_dice_epoch", # This is correct for both models
         mode="max",
         dirpath=os.path.join(model_save_dir, 'checkpoints'),
         filename=f'{args.model_name}-{{epoch}}-{{val_dice_epoch:.4f}}',
@@ -308,7 +320,7 @@ def main():
     )
 
     early_stopping_callback = pl.callbacks.EarlyStopping(
-        monitor='val_dice_epoch',
+        monitor='val_dice_epoch', # This is correct for both models
         patience=args.patience,
         verbose=True,
         mode='max'

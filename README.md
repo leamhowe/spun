@@ -95,3 +95,9 @@ python train_lightning.py --model_name quick_test --bands all_spectral_bands
 - Persist split lists to JSON for reproducibility across future runs.
 - Add CLI flag for deterministic CuDNN behavior.
 - Expose image size / crop size as arguments.
+
+
+
+
+
+## my dump

@@ -42,20 +42,22 @@ mins, maxs = (
 )
 
 
-
 class Snows2Dataset(Dataset):
     def __init__(self, files, bands, train=False, use_augmentations=False, mask_clouds=False,
-                 use_indices=True, rmcloud100=False, target_type: str = 'class'):
+                 use_indices=True, rmcloud100=False, target_type: str = 'class',
+                 train_with_clouds: bool = False): # <-- NEW ARGUMENT
         """
         Args:
             files (list): List of file paths to zarr files.
             bands (list): List of band names to be used in the dataset.
             train (bool): Whether the dataset is for training or not.
             use_augmentations (bool): Whether to apply data augmentation.
-            mask_clouds (bool): Whether to mask cloud pixels in the images.
+            mask_clouds (bool): Whether to mask cloud pixels in the *images* (input features).
             use_indices (bool): Whether to append spectral indices to the image tensor.
             rmcloud100 (bool): If True, set image cloud pixels to -100. Else set to 0.
             target_type (str): 'class' for 3-class labels {0,1,2}, 'scf' for 0..100 with clouds=200.
+            train_with_clouds (bool): If True and target_type='scf', relabel clouds (200) 
+                                      to 0 (0% SCF) instead of ignoring them.
         """
         self.files = files
         self.bands = bands
@@ -65,6 +67,7 @@ class Snows2Dataset(Dataset):
         self.use_indices = use_indices
         self.rmcloud100 = rmcloud100
         self.target_type = target_type
+        self.train_with_clouds = train_with_clouds # <-- STORE NEW ARGUMENT
         self._should_duplicate = train and use_augmentations
 
     def __len__(self):
@@ -116,7 +119,8 @@ class Snows2Dataset(Dataset):
         # Labels
         labels_data = store['label'][:].astype(np.int64)
 
-        # Optional cloud masking (assumes clouds encoded as 200 for SCF target)
+        # Optional cloud masking (on the *input features*)
+        # This runs *before* we modify the labels, so it correctly finds clouds.
         if self.mask_clouds:
             cloud_value = 0 if self.target_type == 'class' else 200
             cloud_mask = labels_data == cloud_value
@@ -124,7 +128,18 @@ class Snows2Dataset(Dataset):
                 fill_val = -100.0 if self.rmcloud100 else 0.0
                 bands_data[:, cloud_mask] = fill_val
 
-        mask_fill_value = 200 if self.target_type == 'scf' else (0 if (self.mask_clouds and not self.rmcloud100) else 1)
+        # --- NEW LOGIC ---
+        # If training with clouds, set cloud labels (200) to 0 (snow-free)
+        # This happens *after* input feature masking but *before* augmentation.
+        if self.target_type == 'scf' and self.train_with_clouds:
+            labels_data[labels_data == 200] = 0
+        # --- END NEW LOGIC ---
+            
+        # This logic is now correct:
+        # If train_with_clouds=True, labels_data has 0-100. pad=200.
+        # If train_with_clouds=False, labels_data has 0-100 AND 200 (cloud). pad=200.
+        # mask_fill_value = 200 if self.target_type == 'scf' else (0 if (self.mask_clouds and not self.rmcloud100) else 1)
+        mask_fill_value=0
 
         standard_augmentation = A.Compose([
             A.PadIfNeeded(min_height=128, min_width=128, border_mode=cv2.BORDER_CONSTANT, fill=0, fill_mask=mask_fill_value),
@@ -187,5 +202,3 @@ class Snows2Dataset(Dataset):
                 image_tensor = torch.cat([image_tensor] + extras, dim=0)
 
         return {"image": image_tensor, "label": labels_tensor, "mask": labels_tensor}
-
-
