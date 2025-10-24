@@ -22,17 +22,20 @@ echo "Starting SLURM job array task ${SLURM_ARRAY_TASK_ID} for combloss tuning."
 
 # --- CHANGED: Updated Python command ---
 python -u /home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/scripts/tune_scf_combloss_fast.py \
-    --study-name "tuning_scf_combloss_fast" \
+    --study-name "20251023_tuning_scf_combloss_final" \
     --server "jasmin" \
-    --epochs 50 \
-    --patience 10 \
+    --epochs 75 \
+    --patience 15 \
     --split_file "/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv" \
+    --use_augmentations \
+    --train_with_clouds 
     # --- NEW: Add required split_file argument ---
     
     # --- NEW: Add fixed arguments for the study (optional, add/remove as needed) ---
     # --use_augmentations \
     # --use_indices \
     # --mask_clouds
+    # --train_with_clouds
     # -----------------------------------------------------------------------------
 
 echo "SLURM job array task ${SLURM_ARRAY_TASK_ID} finished."
