@@ -105,3 +105,251 @@ python train_lightning_combloss.py --model_name 20251021_torchgeo_combloss_NOIGN
 
 
 python train_lightning_combloss.py --model_name 20251022_torchgeo_combloss_NOIGNORE_S2SplitsClean_Bsatlas_PTWSatlasMs_WInLin10_pat50_lr1e-4_pad0_run001 --bands satlas_ms --backbone resnet152  --weights satlas_ms --num_workers 24 --patience 50 --lr 1e-4 --batch_size 8 --snow_weight 10 --loss_weighting inverse_linear --train_with_clouds --split_file /home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv
+
+python train_lightning_combloss.py --model_name 20251111_torchgeo_combloss_NOIGNORE_S2SplitsClean_BAllSpectral_PTWS2SoftCon_WBin10_pat50_lr1e-4_pad0_run001 --bands all_spectral --split_file /home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv --weights sentinel2_softcon --num_workers 24 --patience 50 --lr 1e-4 --batch_size 8 --snow_weight 10 --loss_weighting binary --train_with_clouds
+
+python train_lightning_combloss.py --model_name 20251111_torchgeo_combloss_NOIGNORE_S2SplitsClean_BAllSpectral_PTWS2AllMoco_WBin10_pat50_lr1e-4_pad0_run001 --bands all_spectral --split_file /home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv --weights sentinel2_all_moco --num_workers 24 --patience 50 --lr 1e-4 --batch_size 8 --snow_weight 10 --loss_weighting binary --train_with_clouds
+
+python train_lightning_combloss_13bands.py --model_name 20251112_torchgeo_combloss_NOIGNORE_S2SplitsClean_BAllSpectral_PTWS2AllMoco_WBin10_pat50_lr1e-4_pad0_run001 --bands all_spectral --split_file /home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv --weights sentinel2_all_moco --num_workers 24 --patience 50 --lr 1e-4 --batch_size 8 --snow_weight 10 --loss_weighting binary --train_with_clouds
+
+### tuned parameters
+
+python train_lightning_combloss.py     
+  --model_name "Final_Trial30_ResNet50_Softcon_v3"     
+  --server "jasmin"     
+  --split_file "/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv"     
+  --use_augmentations     
+  --train_with_clouds     
+  --bands "all_spectral"     
+  --backbone "resnet50"     
+  --weights "sentinel2_softcon"     
+  --batch_size 8     
+  --lr 1.1725161187672691e-05     
+  --loss_fn "huber"     
+  --loss_weighting "binary"     
+  --snow_weight 7.040241273998283     
+  --snow_thresh 0.3399060516710048     
+  --dice_loss_weight 0.8809736082904772     
+  --patience 20     
+  --num_workers 4
+
+
+**Trial 39**
+
+python train_lightning_combloss.py \
+    --model_name "Final_T39_AllDino_invlinear" \
+    --server "jasmin" \
+    --split_file "/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv" \
+    --use_augmentations \
+    --train_with_clouds \
+    --bands "all_spectral" \
+    --backbone "resnet50" \
+    --patience 50 \
+    --num_workers 24 \
+    --weights "sentinel2_all_dino" \
+    --batch_size 8 \
+    --lr 5.405207066353444e-05 \
+    --loss_fn "mse" \
+    --loss_weighting "inverse_linear" \
+    --snow_weight 1.6472820171376819 \
+    --snow_thresh 0.08910991771832737 \
+    --dice_loss_weight 0.14556214009188198
+
+**Trial 4**
+python train_lightning_combloss.py \
+    --model_name "Final_T4_AllDino_none" \
+    --server "jasmin" \
+    --split_file "/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv" \
+    --use_augmentations \
+    --train_with_clouds \
+    --bands "all_spectral" \
+    --backbone "resnet50" \
+    --patience 50 \
+    --num_workers 24 \
+    --weights "sentinel2_all_dino" \
+    --batch_size 32 \
+    --lr 0.0009698563793929831 \
+    --loss_fn "l1" \
+    --loss_weighting "none" \
+    --snow_thresh 0.3320815509861747 \
+    --dice_loss_weight 0.6095664535712578
+
+**Trial 66**
+python train_lightning_combloss.py \
+    --model_name "Final_T66_ImageNet_binary" \
+    --server "jasmin" \
+    --split_file "/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv" \
+    --use_augmentations \
+    --train_with_clouds \
+    --bands "all_spectral" \
+    --backbone "resnet50" \
+    --patience 50 \
+    --num_workers 24 \
+    --weights "imagenet" \
+    --batch_size 16 \
+    --lr 7.81514168490619e-05 \
+    --loss_fn "huber" \
+    --loss_weighting "binary" \
+    --snow_weight 2.6174735357743604 \
+    --snow_thresh 0.4251087897646257 \
+    --dice_loss_weight 0.8700951942444198
+
+**Trial 143**
+python train_lightning_combloss.py \
+    --model_name "Final_T143_ImageNet_binary" \
+    --server "jasmin" \
+    --split_file "/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv" \
+    --use_augmentations \
+    --train_with_clouds \
+    --bands "all_spectral" \
+    --backbone "resnet50" \
+    --patience 50 \
+    --num_workers 24 \
+    --weights "imagenet" \
+    --batch_size 32 \
+    --lr 8.237703246555589e-05 \
+    --loss_fn "huber" \
+    --loss_weighting "binary" \
+    --snow_weight 18.12120023327038 \
+    --snow_thresh 0.4251087897646257 \
+    --dice_loss_weight 0.8700951942444198
+**Trial 152**
+python train_lightning_combloss.py \
+    --model_name "Final_T152_ImageNet_linear" \
+    --server "jasmin" \
+    --split_file "/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv" \
+    --use_augmentations \
+    --train_with_clouds \
+    --bands "all_spectral" \
+    --backbone "resnet50" \
+    --patience 50 \
+    --num_workers 24 \
+    --weights "imagenet" \
+    --batch_size 32 \
+    --lr 0.00016990484220539724 \
+    --loss_fn "huber" \
+    --loss_weighting "linear" \
+    --snow_weight 3.418548843378609 \
+    --snow_thresh 0.2097704039745673 \
+    --dice_loss_weight 0.8700951942444198
+**Trial 28**
+python train_lightning_combloss.py \
+    --model_name "Final_T28_Moco_linear" \
+    --server "jasmin" \
+    --split_file "/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv" \
+    --use_augmentations \
+    --train_with_clouds \
+    --bands "all_spectral" \
+    --backbone "resnet50" \
+    --patience 50 \
+    --num_workers 24 \
+    --weights "sentinel2_all_moco" \
+    --batch_size 32 \
+    --lr 0.00011154468326912748 \
+    --loss_fn "mse" \
+    --loss_weighting "linear" \
+    --snow_weight 9.671855483590338 \
+    --snow_thresh 0.034802366839596 \
+    --dice_loss_weight 0.7068915020828858
+**Trial 12**
+python train_lightning_combloss.py \
+    --model_name "Final_T12_Softcon_linear" \
+    --server "jasmin" \
+    --split_file "/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv" \
+    --use_augmentations \
+    --train_with_clouds \
+    --bands "all_spectral" \
+    --backbone "resnet50" \
+    --patience 50 \
+    --num_workers 24 \
+    --weights "sentinel2_softcon" \
+    --batch_size 16 \
+    --lr 5.9789815148777714e-05 \
+    --loss_fn "huber" \
+    --loss_weighting "linear" \
+    --snow_weight 2.9512016190028687 \
+    --snow_thresh 0.03650865323402854 \
+    --dice_loss_weight 0.5005588405503213
+**Trial 64**
+python train_lightning_combloss.py \
+    --model_name "Final_T64_Softcon_invlinear" \
+    --server "jasmin" \
+    --split_file "/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv" \
+    --use_augmentations \
+    --train_with_clouds \
+    --bands "all_spectral" \
+    --backbone "resnet50" \
+    --patience 50 \
+    --num_workers 24 \
+    --weights "sentinel2_softcon" \
+    --batch_size 8 \
+    --lr 0.00010767609233176974 \
+    --loss_fn "huber" \
+    --loss_weighting "inverse_linear" \
+    --snow_weight 4.874022607722513 \
+    --snow_thresh 0.26351518424865583 \
+    --dice_loss_weight 0.3749431516118932
+
+
+# Normalisation added
+
+--- Trial 66 ---
+  Values (RMSE_snow, Dice): [0.3597731590270996, 0.7101811170578003]
+  Parameters:
+    loss_weighting: inverse_linear
+    snow_weight: 3.0533141102829875
+    lr: 2.925316069302096e-05
+    batch_size: 8
+    loss_fn: mse
+    snow_thresh: 0.07615339251914251
+    dice_loss_weight: 0.28545900145292324
+
+
+python train_lightning_combloss_13bands.py \
+    --model_name "Final_T66_Softcon_invlinear_NORM" \
+    --server "jasmin" \
+    --split_file "/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv" \
+    --use_augmentations \
+    --train_with_clouds \
+    --bands "all_spectral" \
+    --backbone "resnet50" \
+    --patience 50 \
+    --num_workers 24 \
+    --weights "sentinel2_softcon" \
+    --batch_size 8 \
+    --lr 2.925316069302096e-05 \
+    --loss_fn "mse" \
+    --loss_weighting "inverse_linear" \
+    --snow_weight 3.0533141102829875 \
+    --snow_thresh 0.07615339251914251 \
+    --dice_loss_weight 0.28545900145292324
+
+--- Trial 59 ---
+  Values (RMSE_snow, Dice): [0.36314302682876587, 0.7146376967430115]
+  Parameters:
+    loss_weighting: binary
+    snow_weight: 16.91732391775266
+    lr: 0.00016417313765636663
+    batch_size: 32
+    loss_fn: huber
+    snow_thresh: 0.013805707032480621
+    dice_loss_weight: 0.1290031348531521
+
+python train_lightning_combloss_13bands.py \
+    --model_name "Final_T59_Moco_binary_NORM" \
+    --server "jasmin" \
+    --split_file "/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv" \
+    --use_augmentations \
+    --train_with_clouds \
+    --bands "all_spectral" \
+    --backbone "resnet50" \
+    --weights "sentinel2_all_moco" \
+    --patience 50 \
+    --num_workers 24 \
+    --batch_size 32 \
+    --lr 0.00016417313765636663 \
+    --loss_fn "huber" \
+    --loss_weighting "binary" \
+    --snow_weight 16.91732391775266 \
+    --snow_thresh 0.013805707032480621 \
+    --dice_loss_weight 0.1290031348531521

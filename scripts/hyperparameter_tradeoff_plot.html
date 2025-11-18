@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    #vis.vega-embed {
+      width: 100%;
+      display: flex;
+    }
+
+    #vis.vega-embed details,
+    #vis.vega-embed details summary {
+      position: relative;
+    }
+  </style>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/vega-lite@5.20.1"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+</head>
+<body>
+  <div id="vis"></div>
+  <script>
+    (function(vegaEmbed) {
+      var spec = {"config": {"view": {"continuousWidth": 300, "continuousHeight": 300}}, "data": {"name": "data-4a410f7a0619187203562197d393b35b"}, "mark": {"type": "circle", "opacity": 0.7, "size": 100}, "encoding": {"color": {"field": "weights", "title": "Weights", "type": "nominal"}, "tooltip": [{"field": "weights", "type": "nominal"}, {"field": "trial", "type": "quantitative"}, {"field": "RMSE_snow", "type": "quantitative"}, {"field": "Dice", "type": "quantitative"}, {"field": "loss_weighting", "type": "nominal"}, {"field": "loss_fn", "type": "nominal"}, {"field": "lr", "type": "quantitative"}, {"field": "batch_size", "type": "quantitative"}, {"field": "snow_thresh", "type": "quantitative"}, {"field": "snow_weight", "type": "nominal"}, {"field": "dice_loss_weight", "type": "quantitative"}], "x": {"field": "RMSE_snow", "scale": {"zero": false}, "title": "RMSE Snow (Lower is better)", "type": "quantitative"}, "y": {"field": "Dice", "scale": {"zero": false}, "title": "Dice Score (Higher is better)", "type": "quantitative"}}, "height": 500, "params": [{"name": "param_1", "select": {"type": "interval", "encodings": ["x", "y"]}, "bind": "scales"}], "title": "Hyperparameter Trade-off: Dice vs. RMSE", "width": 700, "$schema": "https://vega.github.io/schema/vega-lite/v5.20.1.json", "datasets": {"data-4a410f7a0619187203562197d393b35b": [{"weights": "dino", "trial": 52, "RMSE_snow": 0.3424930274486542, "Dice": 0.3151787221431732, "batch_size": 16, "dice_loss_weight": 0.1340498737295818, "loss_fn": "huber", "loss_weighting": "linear", "lr": 1.0237319156269916e-05, "snow_thresh": 0.047022043704052, "snow_weight": 7.724495334357507}, {"weights": "dino", "trial": 16, "RMSE_snow": 0.3508337438106537, "Dice": 0.4498133361339569, "batch_size": 32, "dice_loss_weight": 0.1679646400864953, "loss_fn": "l1", "loss_weighting": "inverse_linear", "lr": 1.1696846230541906e-05, "snow_thresh": 0.2098825858695139, "snow_weight": 16.37761626336438}, {"weights": "dino", "trial": 38, "RMSE_snow": 0.3550026416778564, "Dice": 0.5001886487007141, "batch_size": 32, "dice_loss_weight": 0.7194422278023007, "loss_fn": "mse", "loss_weighting": "linear", "lr": 4.848074862095789e-05, "snow_thresh": 0.1525650703848512, "snow_weight": 1.8580941893116183}, {"weights": "dino", "trial": 84, "RMSE_snow": 0.356016606092453, "Dice": 0.5705345869064331, "batch_size": 32, "dice_loss_weight": 0.1679646400864953, "loss_fn": "mse", "loss_weighting": "none", "lr": 1.1696846230541906e-05, "snow_thresh": 0.2098825858695139, "snow_weight": "N/A"}, {"weights": "dino", "trial": 48, "RMSE_snow": 0.3734205961227417, "Dice": 0.7333991527557373, "batch_size": 16, "dice_loss_weight": 0.8759911101474247, "loss_fn": "l1", "loss_weighting": "linear", "lr": 0.0001100107562907, "snow_thresh": 0.187395888753287, "snow_weight": 5.278804963886806}, {"weights": "dino", "trial": 90, "RMSE_snow": 0.3775089979171753, "Dice": 0.7336691617965698, "batch_size": 32, "dice_loss_weight": 0.8759911101474247, "loss_fn": "mse", "loss_weighting": "none", "lr": 0.0001294061820811, "snow_thresh": 0.239686960919524, "snow_weight": "N/A"}, {"weights": "dino", "trial": 92, "RMSE_snow": 0.3823256194591522, "Dice": 0.7352896332740784, "batch_size": 32, "dice_loss_weight": 0.602014287344464, "loss_fn": "mse", "loss_weighting": "binary", "lr": 0.000516808751322, "snow_thresh": 0.1695670582782492, "snow_weight": 11.049744063154588}, {"weights": "dino", "trial": 15, "RMSE_snow": 0.3826596438884735, "Dice": 0.7382827401161194, "batch_size": 32, "dice_loss_weight": 0.7249037464623463, "loss_fn": "mse", "loss_weighting": "none", "lr": 0.0005883971025241, "snow_thresh": 0.0787182118580972, "snow_weight": "N/A"}, {"weights": "moco", "trial": 59, "RMSE_snow": 0.3631430268287658, "Dice": 0.7146376967430115, "batch_size": 32, "dice_loss_weight": 0.1290031348531521, "loss_fn": "huber", "loss_weighting": "binary", "lr": 0.0001641731376563, "snow_thresh": 0.0138057070324806, "snow_weight": 16.91732391775266}, {"weights": "moco", "trial": 64, "RMSE_snow": 0.3761085569858551, "Dice": 0.7410099506378174, "batch_size": 32, "dice_loss_weight": 0.8119456901292502, "loss_fn": "mse", "loss_weighting": "binary", "lr": 0.0003409670814138, "snow_thresh": 0.2299538931049584, "snow_weight": 4.44367955136901}, {"weights": "none", "trial": 2, "RMSE_snow": 0.4277924299240112, "Dice": 0.482528954744339, "batch_size": 8, "dice_loss_weight": 0.7728920644737336, "loss_fn": "huber", "loss_weighting": "linear", "lr": 1.285016721165287e-05, "snow_thresh": 0.1564853869909931, "snow_weight": 12.033542781467256}]}};
+      var embedOpt = {"mode": "vega-lite"};
+
+      function showError(el, error){
+          el.innerHTML = ('<div style="color:red;">'
+                          + '<p>JavaScript Error: ' + error.message + '</p>'
+                          + "<p>This usually means there's a typo in your chart specification. "
+                          + "See the javascript console for the full traceback.</p>"
+                          + '</div>');
+          throw error;
+      }
+      const el = document.getElementById('vis');
+      vegaEmbed("#vis", spec, embedOpt)
+        .catch(error => showError(el, error));
+    })(vegaEmbed);
+
+  </script>
+</body>
+</html>

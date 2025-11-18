@@ -13,7 +13,7 @@ from pytorch_lightning.callbacks import Callback, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 
 # Import the combined-loss model
-from src.unet_torchgeo_combloss_lightning_trainer import SnowModel
+from src.unet_torchgeo_combloss_lightning_trainer_13bands import SnowModel
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -75,17 +75,20 @@ def objective(trial, args, train_files, val_files):
     # --- 1. Suggest hyperparameters independently ---
 
     # --- Suggest backbone from FULL list ---
-    backbone_value = trial.suggest_categorical("backbone", ["resnet50"])
+    # backbone_value = trial.suggest_categorical("backbone", ["resnet50"])
+    backbone_value = "resnet50"  # Fixed for this study
 
     # --- Suggest weights from FULL list ---
-    weights_value = trial.suggest_categorical("weights",
-        ["imagenet", None,
-         "sentinel2_all_moco",
-         "sentinel2_all_dino", "sentinel2_all_decur", "sentinel2_softcon",
-         ])
+    # weights_value = trial.suggest_categorical("weights",
+    #     ["imagenet", None,
+    #      "sentinel2_all_moco",
+    #      "sentinel2_all_dino", "sentinel2_all_decur", "sentinel2_softcon",
+    #      ])
+    weights_value = args.weights
 
     # --- Suggest bands from FULL list ---
-    band_selection = trial.suggest_categorical("band_selection", ["all_spectral"])
+    band_selection = "all_spectral"  # Fixed for this study
+    # band_selection = trial.suggest_categorical("band_selection", ["all_spectral"])
     bands = get_band_list(band_selection)
 
     # --- Suggest other parameters ---
@@ -126,15 +129,21 @@ def objective(trial, args, train_files, val_files):
         model = SnowModel(
             bands=bands, train_files=train_files, val_files=val_files,
             mask_clouds=args.mask_clouds, use_augmentations=args.use_augmentations,
-            use_indices=args.use_indices, train_with_clouds=train_with_clouds,
+            # use_indices=args.use_indices, 
+            train_with_clouds=train_with_clouds,
             hparams=hparams
         )
         log_dir = os.path.join(args.output_dir, "logs")
         monitor_metric_stop = 'val_rmse_snow_epoch'
         early_stop_callback = EarlyStopping(monitor=monitor_metric_stop, patience=hparams['patience'], verbose=False, mode='min')
         trainer = pl.Trainer(
-            accelerator='gpu' if torch.cuda.is_available() else 'cpu',
-            devices=1, max_epochs=args.epochs,
+            # accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+            # devices=1, 
+            accelerator='gpu',        # Force accelerator to 'gpu'
+            devices=1,              # Force it to use one GPU
+            # strategy='single_device', # Force it to use one device, disable DDP/SLURM auto-detection
+            # devices=[0],              # Force it to use the GPU at index 0 (which SLURM provides)
+            max_epochs=args.epochs,
             logger=TensorBoardLogger(save_dir=log_dir, name=args.study_name, version=f"trial_{trial.number}"),
             callbacks=[early_stop_callback],
             enable_checkpointing=False, enable_progress_bar=False,
@@ -163,6 +172,7 @@ def get_args():
     parser.add_argument('--epochs', type=int, default=75, help='Max epochs per trial') # Increased epochs
     parser.add_argument('--patience', type=int, default=20, help='Patience for early stopping') # Increased patience
     parser.add_argument('--server', type=str, default='jasmin', help='Running on "jasmin" or "pentland"?')
+    parser.add_argument('--weights', type=str, default=None, help='Pretrained weights to use for backbone. Options: imagenet, sentinel2_all_moco, sentinel2_all_dino, sentinel2_all_decur, sentinel2_softcon, or None')
 
     # --- Fixed arguments for the study ---
     parser.add_argument('--mask_clouds', action='store_true', help='Mask clouds in the image features (fixed for study)')
@@ -172,6 +182,7 @@ def get_args():
     parser.set_defaults(use_indices=False) # Ensure default is False
     parser.add_argument('--train_with_clouds', action='store_true', dest='train_with_clouds', help='Enable training with clouds (fixed for study)') # Default True
     parser.set_defaults(train_with_clouds=True) # Ensure default is True
+
 
     return parser.parse_args()
 

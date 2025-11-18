@@ -343,22 +343,44 @@ def main():
     trainer.fit(snow_model, ckpt_path=args.checkpoint_path)
     print("--- Model training finished ---")
 
-    # --- Run Inference on Test Data (only on rank 0) ---
     if trainer.global_rank == 0:
         best_model_path = checkpoint_callback.best_model_path
         
-        # Save final model state dict
-        final_pt_path = os.path.join(model_save_dir, f"{args.model_name}_final.pt")
+        # Save final model state dict (This is the *last* epoch, which is fine to save)
+        final_pt_path = os.path.join(model_save_dir, f"{args.model_name}_final_epoch.pt")
         torch.save(snow_model.state_dict(), final_pt_path)
-        print(f"Final model state dict saved to: {final_pt_path}")
+        print(f"Final (last epoch) model state dict saved to: {final_pt_path}")
 
+        # Default to the model in memory (last epoch) if no best_model_path is found
+        model_to_test = snow_model
+        
         if best_model_path and os.path.exists(best_model_path):
             print(f"\nBest model checkpoint was saved to: {best_model_path}")
-            print("Using the model state automatically restored by the trainer for testing.")
-        else:
-            print("\nNo best model checkpoint was found. Using the final trained model state for testing.")
+            print("Loading best model checkpoint for testing...")
+            # --- Load the BEST model from the checkpoint file ---
+            model_to_test = SnowModel.load_from_checkpoint(
+                best_model_path,
+                # You must pass all __init__ args again that aren't in hparams
+                bands=bands,
+                train_files=train_files,
+                val_files=val_files,
+                mask_clouds=args.mask_clouds,
+                use_augmentations=args.use_augmentations,
+                use_indices=args.use_indices,
+                train_with_clouds=args.train_with_clouds
+                # hparams will be loaded from the checkpoint
+            )
+            
+            # --- Save the BEST model's state dict separately ---
+            best_pt_path = os.path.join(model_save_dir, f"{args.model_name}_best.pt")
+            torch.save(model_to_test.state_dict(), best_pt_path)
+            print(f"Best model state dict saved to: {best_pt_path}")
 
-        test_model(trainer, snow_model, test_files, bands, args, metrics_save_dir)
+        else:
+            print("\nNo best model checkpoint was found. Testing with final (last epoch) model.")
+
+        # --- Pass the potentially reloaded BEST model to test_model ---
+        test_model(trainer, model_to_test, test_files, bands, args, metrics_save_dir)
 
     wandb.finish()
 

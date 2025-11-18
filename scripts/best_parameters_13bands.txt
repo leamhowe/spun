@@ -1,0 +1,78 @@
+--- Study: 20251024_tune_scf_combloss_13bands ---
+Total trials attempted: 100
+  Successfully completed: 99
+  Pruned (skipped/stopped early): 0
+  Failed: 0
+  Currently running: 1
+
+Found 5 Pareto optimal trials among completed:
+
+--- Trial 75 ---
+  Values (RMSE_snow, Dice): [0.3263, 0.5553]
+  Parameters:
+    backbone: resnet50
+    weights: sentinel2_softcon
+    band_selection: all_spectral
+    loss_weighting: inverse_linear
+    snow_weight: 16.0385245399549
+    lr: 2.7484745468076418e-05
+    batch_size: 16
+    loss_fn: huber
+    snow_thresh: 0.0482135504359352
+    dice_loss_weight: 0.10889663823964774
+
+--- Trial 87 ---
+  Values (RMSE_snow, Dice): [0.3626, 0.6510]
+  Parameters:
+    backbone: resnet50
+    weights: sentinel2_all_decur
+    band_selection: all_spectral
+    loss_weighting: binary
+    snow_weight: 4.644498616056001
+    lr: 0.00036897156129415726
+    batch_size: 32
+    loss_fn: l1
+    snow_thresh: 0.33442856620720857
+    dice_loss_weight: 0.7152638902521752
+
+--- Trial 30 ---
+  Values (RMSE_snow, Dice): [0.3628, 0.7189]
+  Parameters:
+    backbone: resnet50
+    weights: sentinel2_softcon
+    band_selection: all_spectral
+    loss_weighting: binary
+    snow_weight: 7.040241273998283
+    lr: 1.1725161187672691e-05
+    batch_size: 8
+    loss_fn: huber
+    snow_thresh: 0.3399060516710048
+    dice_loss_weight: 0.8809736082904772
+
+--- Trial 85 ---
+  Values (RMSE_snow, Dice): [0.3696, 0.7296]
+  Parameters:
+    backbone: resnet50
+    weights: imagenet
+    band_selection: all_spectral
+    loss_weighting: binary
+    snow_weight: 3.5345115178438773
+    lr: 6.219758662168726e-05
+    batch_size: 8
+    loss_fn: huber
+    snow_thresh: 0.10555026241451876
+    dice_loss_weight: 0.18479575039171703
+
+--- Trial 1 ---
+  Values (RMSE_snow, Dice): [0.3762, 0.7314]
+  Parameters:
+    backbone: resnet50
+    weights: None
+    band_selection: all_spectral
+    loss_weighting: inverse_linear
+    snow_weight: 6.397253505300949
+    lr: 0.00011268096056625982
+    batch_size: 16
+    loss_fn: l1
+    snow_thresh: 0.25789626796687676
+    dice_loss_weight: 0.6036007107535093
