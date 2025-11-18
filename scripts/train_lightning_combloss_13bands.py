@@ -169,7 +169,7 @@ def test_model(trainer, snow_model, test_files, bands, args, metrics_save_dir):
         mask_clouds=args.mask_clouds,
         # use_indices=args.use_indices,
         target_type='scf',
-        train_with_clouds=False # Explicitly set to False for testing
+        train_with_clouds=args.train_with_clouds 
     )
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size * 2, shuffle=False, num_workers=args.num_workers)
 

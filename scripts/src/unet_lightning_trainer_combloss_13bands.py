@@ -53,17 +53,17 @@ class SoftDiceLoss(nn.Module):
 class SnowModel(pl.LightningModule):
     """UNet for Snow Cover Fraction regression (0..1) with masked loss (ignore 200/cloud)."""
 
-    def __init__(self, bands, train_files, val_files, mask_clouds, use_augmentations, use_indices, hparams, in_channels=None):
+    def __init__(self, bands, train_files, val_files, mask_clouds, use_augmentations, use_indices, train_with_clouds, in_channels=None):
         super().__init__()
         self.save_hyperparameters(hparams)
 
         # Datasets (remains the same)
         self.train_dataset = Snows2Dataset(train_files, bands=bands, train=True,
                                            mask_clouds=mask_clouds, use_augmentations=use_augmentations,
-                                           use_indices=use_indices, target_type='scf')
+                                           use_indices=use_indices, target_type='scf', train_with_clouds=train_with_clouds)
         self.val_dataset = Snows2Dataset(val_files, bands=bands, train=False,
                                          mask_clouds=mask_clouds, use_augmentations=False,
-                                         use_indices=use_indices, target_type='scf')
+                                         use_indices=use_indices, target_type='scf', train_with_clouds=train_with_clouds)
 
         if in_channels is None:
             in_channels = len(self.train_dataset[0]['image'])
