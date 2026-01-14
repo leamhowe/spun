@@ -5,7 +5,8 @@ import os
 
 # Find all the text files
 directory = "/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/spun-scf/combloss_tuning"
-file_pattern = "best_hyperparameters_20251113_tune_scf_combloss_13bands_*.txt"
+# file_pattern = "best_hyperparameters_20251113_tune_scf_combloss_13bands_*.txt"
+file_pattern = "best_hyperparameters_20251118_tune_scf_combloss_13bands_SCALE10000_*.txt"
 file_list = glob.glob(os.path.join(directory, file_pattern))
 
 if not file_list:
@@ -130,7 +131,8 @@ if all_trials_data:
     
     df = df[final_cols]
     
-    output_csv = "20251113_hyperparameter_comparison.csv"
+    # output_csv = "20251113_hyperparameter_comparison.csv"
+    output_csv = "20251118_scale10000_hyperparameter_comparison.csv"
     df.to_csv(output_csv, index=False)
     
     print(f"\nSuccessfully processed {len(file_list)} files.")

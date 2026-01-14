@@ -3,3 +3,6 @@
 *.out
 *.log
 *.err
+*.pth
+*.pt
+*.ckpt

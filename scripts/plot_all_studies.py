@@ -17,13 +17,21 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 #     '20251111_tune_scf_combloss_13bands_moco',
 #     '20251111_tune_scf_combloss_13bands_softcon'
 # ]
+# study_names = [
+#     '20251113_tune_scf_combloss_13bands_NORM_dino',
+#     '20251113_tune_scf_combloss_13bands_NORM_decur',
+#     '20251113_tune_scf_combloss_13bands_NORM_imagenet',
+#     '20251113_tune_scf_combloss_13bands_NORM_moco',
+#     '20251113_tune_scf_combloss_13bands_NORM_softcon',
+#     '20251113_tune_scf_combloss_13bands_NORM_noweights'
+# ]
 study_names = [
-    '20251113_tune_scf_combloss_13bands_NORM_dino',
-    '20251113_tune_scf_combloss_13bands_NORM_decur',
-    '20251113_tune_scf_combloss_13bands_NORM_imagenet',
-    '20251113_tune_scf_combloss_13bands_NORM_moco',
-    '20251113_tune_scf_combloss_13bands_NORM_softcon',
-    '20251113_tune_scf_combloss_13bands_NORM_noweights'
+    '20251118_tune_scf_combloss_13bands_SCALE10000_dino',
+    '20251118_tune_scf_combloss_13bands_SCALE10000_decur',
+    '20251118_tune_scf_combloss_13bands_SCALE10000_imagenet',
+    '20251118_tune_scf_combloss_13bands_SCALE10000_moco',
+    '20251118_tune_scf_combloss_13bands_SCALE10000_softcon',
+    '20251118_tune_scf_combloss_13bands_SCALE10000_noweights'
 ]
 output_dir = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/spun-scf/combloss_tuning'
 # --- End Configuration ---
@@ -117,7 +125,7 @@ chart = alt.Chart(plot_df).mark_circle(size=80, opacity=0.5).encode(
     height=600
 ).interactive()
 
-output_chart_html = "all_trials_tradeoff_plot.html"
+output_chart_html = "20251118_scale10000_all_trials_tradeoff_plot.html"
 chart.save(output_chart_html)
 
 logging.info(f"Successfully saved plot to {output_chart_html}")

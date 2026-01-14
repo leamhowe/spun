@@ -331,14 +331,17 @@ class SnowModel(pl.LightningModule):
 
         metrics = self._calculate_metrics(y_hat, y_raw)
         
-        self.log('val_loss', metrics['loss'], prog_bar=True)
-        self.log('val_loss_reg', metrics['loss_reg'])   # Log component
-        self.log('val_loss_dice', metrics['loss_dice']) # Log component
-        self.log('val_mae', metrics['mae'])
-        self.log('val_rmse', metrics['rmse'])
-        self.log('val_mae_snow', metrics['mae_snow'], prog_bar=True)
-        self.log('val_rmse_snow', metrics['rmse_snow'], prog_bar=True)
-        self.log('val_dice_step', metrics['dice'], prog_bar=True) # Log per-step dice
+        # Add sync_dist=True to these calls:
+        self.log('val_loss', metrics['loss'], prog_bar=True, sync_dist=True)
+        self.log('val_loss_reg', metrics['loss_reg'], sync_dist=True)
+        self.log('val_loss_dice', metrics['loss_dice'], sync_dist=True)
+        self.log('val_mae', metrics['mae'], sync_dist=True)
+        self.log('val_rmse', metrics['rmse'], sync_dist=True)
+        self.log('val_mae_snow', metrics['mae_snow'], prog_bar=True, sync_dist=True)
+        self.log('val_rmse_snow', metrics['rmse_snow'], prog_bar=True, sync_dist=True)
+        
+        # FIX:
+        self.log('val_dice_step', metrics['dice'], prog_bar=True, sync_dist=True)
 
         self._update_accumulators(self._val_acc, y_hat, y_raw, metrics)
         return metrics['loss']

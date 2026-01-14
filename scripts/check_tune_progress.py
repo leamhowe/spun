@@ -17,13 +17,19 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 # study_name = '20251111_tune_scf_combloss_13bands_moco' # Use the correct name from logs
 # study_name = '20251111_tune_scf_combloss_13bands_softcon' # Use the correct name from logs
 # study_name = '20251113_tune_scf_combloss_13bands_NORM_none' # Use the correct name from logs
-study_name = '20251113_tune_scf_combloss_13bands_NORM_moco'
+# study_name = '20251113_tune_scf_combloss_13bands_NORM_moco'
 # study_name = '20251113_tune_scf_combloss_13bands_NORM_none'
 # study_name = '20251113_tune_scf_combloss_13bands_NORM_dino'
-# study_name = '20251113_tune_scf_combloss_13bands_NORM_softcon'
-# study_name = '20251113_tune_scf_combloss_13bands_NORM_decur'
+# study_name = '20251118_tune_scf_combloss_13bands_NORM_softcon'
 # study_name = '20251113_tune_scf_combloss_13bands_NORM_imagenet'
 # study_name = '20251113_tune_scf_combloss_13bands_NORM_noweights'
+# study_name = '20251118_tune_scf_combloss_13bands_SCALE10000_decur'
+# study_name = '20251118_tune_scf_combloss_13bands_SCALE10000_dino'
+# study_name = '20251118_tune_scf_combloss_13bands_SCALE10000_moco'
+study_name = '20251118_tune_scf_combloss_13bands_SCALE10000_softcon'
+study_name = '20251118_tune_scf_combloss_13bands_SCALE10000_imagenet'
+# study_name = '20251118_tune_scf_combloss_13bands_SCALE10000_noweights'
+
 output_dir = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/spun-scf/combloss_tuning'
 log_path = os.path.join(output_dir, f'{study_name}.log')
 # --- End Configuration ---
