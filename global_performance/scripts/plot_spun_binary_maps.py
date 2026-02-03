@@ -30,9 +30,10 @@ NODATA_VAL = 200
 # ==========================================
 
 def normalize_s2_for_plot(img_array):
-    img_array = np.nan_to_num(img_array)
-    p2, p98 = np.percentile(img_array, (2, 98))
-    img_norm = np.clip((img_array - p2) / (p98 - p2), 0, 1)
+    # img_array = np.nan_to_num(img_array)
+    # p2, p98 = np.percentile(img_array, (2, 98))
+    # img_norm = np.clip((img_array - p2) / (p98 - p2), 0, 1)
+    img_norm = img_array.astype(np.float32)
     return img_norm
 
 def get_file_paths(gt_filename, base_dir):

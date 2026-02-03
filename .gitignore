@@ -6,3 +6,4 @@
 *.pth
 *.pt
 *.ckpt
+global_performance/scripts/plots/*

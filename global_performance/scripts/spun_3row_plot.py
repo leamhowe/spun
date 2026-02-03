@@ -11,6 +11,7 @@ import matplotlib.patches as mpatches
 # ==========================================
 
 SPUN_DIR = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/spun-scf/wang_comparison/Final_T15_dino_none_scale10000_best_mosaicked'
+# SPUN_DIR = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/spun-scf/wang_comparison/Final_T15_dino_none_scale10000_best_nomask'
 
 TARGET_FILES = [
     "20191123T111259_20191123T112151_T29RNQ_-8-3_31-22.tif",
@@ -46,9 +47,10 @@ def create_glacial_colormap():
     return mcolors.LinearSegmentedColormap.from_list('glacial', colors)
 
 def normalize_s2_for_plot(img_array):
-    img_array = np.nan_to_num(img_array)
-    p2, p98 = np.percentile(img_array, (2, 98))
-    img_norm = np.clip((img_array - p2) / (p98 - p2), 0, 1)
+    # img_array = np.nan_to_num(img_array)
+    # p2, p98 = np.percentile(img_array, (2, 98))
+    # img_norm = np.clip((img_array - p2) / (p98 - p2), 0, 1)
+    img_norm = img_array
     return img_norm
 
 def get_file_paths(gt_filename, base_dir):

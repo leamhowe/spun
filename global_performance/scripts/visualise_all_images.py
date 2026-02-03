@@ -1,116 +1,123 @@
-import os
-import glob
-import math
+import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
-import matplotlib.pyplot as plt
+import math
+import os
+import glob
 
 # ==========================================
 # 1. CONFIGURATION
 # ==========================================
 
-RAW_IMAGES_DIR = '/home/users/leamhowe/phd/1_DETECT/Wang2022/datasets/raw_images'
-OUTPUT_FILENAME = 'all_raw_images_grid.png'
-GRID_COLS = 5  # Number of columns in the grid
+MODEL_NAME = 'Final_T15_dino_none_scale10000_best_mosaicked'
+BASE_DIR = f'/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/spun-scf/wang_comparison/{MODEL_NAME}'
+OUTPUT_FILENAME = f'{MODEL_NAME}_all_40_s2_images_grid.png'
+COLS = 7
+
+# --- BRIGHTNESS SETTINGS ---
+GAMMA = 0.65  # Lower value (e.g. 0.4-0.6) makes shadows brighter
+SCALE_FACTOR = 1.0 # Keep 1.0 since your data is already 0-1. Increase if whole image is too dim.
 
 # ==========================================
 # 2. HELPER FUNCTIONS
 # ==========================================
 
-def normalize_for_plot(img_array):
-    """
-    Normalizes a satellite image array (H, W, C) for visualization.
-    Uses a 2%-98% percentile stretch to handle outliers and dark images.
-    """
-    # Handle NaNs
-    img_array = np.nan_to_num(img_array)
-    
-    # Calculate robust min and max
-    p2, p98 = np.percentile(img_array, (2, 98))
-    
-    # Avoid division by zero
-    if p98 == p2:
-        return img_array
-        
-    # Stretch and clip
-    img_norm = (img_array - p2) / (p98 - p2)
-    img_norm = np.clip(img_norm, 0, 1)
-    
-    return img_norm
-
-def load_image(path):
-    """Loads a geotiff and prepares it for matplotlib."""
+def load_geotiff_as_array(path):
     with rasterio.open(path) as src:
-        # Check how many bands we have
-        if src.count >= 3:
-            # Read RGB (Bands 1, 2, 3)
-            # Note: Adjust order to [3, 2, 1] if your TIFs are BGR
-            data = src.read([1, 2, 3])
+        array = src.read()
+    return array
+
+def get_brightened_rgb(path):
+    """
+    Loads RGB (Bands 3,2,1) and applies Gamma Correction to brighten shadows.
+    """
+    try:
+        # 1. Load data
+        image_array = load_geotiff_as_array(path)
+        image_array = image_array.transpose(1, 2, 0)
+        
+        if image_array.shape[2] >= 4:
+            # 2. Extract RGB (Indices 3, 2, 1)
+            rgb = np.stack([
+                image_array[:, :, 3], 
+                image_array[:, :, 2], 
+                image_array[:, :, 1]
+            ], axis=2)
             
-            # Transpose from (Channels, Height, Width) to (Height, Width, Channels)
-            data = np.transpose(data, (1, 2, 0))
-            return normalize_for_plot(data), False # False = not grayscale
+            # 3. Clip to ensure 0-1 range (Safety step)
+            rgb = np.clip(rgb * SCALE_FACTOR, 0, 1)
+            
+            # 4. Apply Gamma Correction
+            # This boosts the dark pixels (shadows) significantly
+            rgb_bright = np.power(rgb, GAMMA)
+            
+            return rgb_bright, False
         else:
-            # Read Single Band (Grayscale)
-            data = src.read(1)
-            return normalize_for_plot(data), True # True = grayscale
+            return image_array[:, :, 0], True
+            
+    except Exception as e:
+        print(f"Error processing {path}: {e}")
+        return np.zeros((100, 100, 3)), False
 
-# ==========================================
-# 3. MAIN SCRIPT
-# ==========================================
+def extract_date_from_filename(filepath):
+    filename = os.path.basename(filepath)
+    try:
+        parts = filename.split('_')
+        for part in parts:
+            if 'T' in part and len(part) >= 8 and part[0].isdigit():
+                return part.split('T')[0]
+        return filename[:15]
+    except IndexError:
+        return filename[:15]
 
-if __name__ == "__main__":
-    
-    # 1. Find all TIFF files
-    print(f"Searching in: {RAW_IMAGES_DIR}")
-    files = sorted(glob.glob(os.path.join(RAW_IMAGES_DIR, '*.tif')))
-    
-    n_files = len(files)
-    print(f"Found {n_files} images.")
-    
-    if n_files == 0:
-        print("No images found. Check the directory path.")
-        exit()
+def plot_s2_grid(file_paths, save_path=None):
+    n_images = len(file_paths)
+    if n_images == 0:
+        print("No images found!")
+        return
 
-    # 2. Setup Grid
-    n_rows = math.ceil(n_files / GRID_COLS)
+    rows = math.ceil(n_images / COLS)
     
-    # Create a large figure size to accommodate many images
-    fig, axs = plt.subplots(n_rows, GRID_COLS, figsize=(GRID_COLS * 4, n_rows * 4))
-    
-    # Flatten axs for easy iteration
+    fig, axs = plt.subplots(rows, COLS, figsize=(COLS * 2, rows * 2.2))
     axs = axs.flatten()
 
-    # 3. Plot Loop
+    print(f"Generating grid for {n_images} images with Gamma {GAMMA}...")
+
     for i, ax in enumerate(axs):
-        if i < n_files:
-            file_path = files[i]
-            filename = os.path.basename(file_path)
+        if i < n_images:
+            path = file_paths[i]
             
-            # Extract a shorter title (e.g., just the date)
-            title = filename.split('_')[0] 
+            # Load Brightened RGB
+            img_data, is_gray = get_brightened_rgb(path)
             
-            try:
-                img_data, is_gray = load_image(file_path)
-                
-                if is_gray:
-                    ax.imshow(img_data, cmap='gray')
-                else:
-                    ax.imshow(img_data)
-                    
-                ax.set_title(title, fontsize=9, fontweight='bold')
-                
-            except Exception as e:
-                print(f"Error loading {filename}: {e}")
-                ax.text(0.5, 0.5, "Load Error", ha='center', va='center', color='red')
+            if is_gray:
+                ax.imshow(img_data, cmap='gray')
+            else:
+                ax.imshow(img_data)
             
+            title = extract_date_from_filename(path)
+            ax.set_title(title, fontsize=9, fontweight='bold')
             ax.axis('off')
+            ax.set_aspect('equal')
         else:
-            # Hide empty subplots at the end
             ax.axis('off')
 
-    # 4. Save
-    print("Saving grid...")
     plt.tight_layout()
-    plt.savefig(OUTPUT_FILENAME, dpi=150, bbox_inches='tight')
-    print(f"Done! Saved to {OUTPUT_FILENAME}")
+    plt.subplots_adjust(bottom=0.05, wspace=0.05, hspace=0.2)
+
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Saved grid to {save_path}")
+    
+    plt.show()
+
+# ==========================================
+# 3. MAIN EXECUTION
+# ==========================================
+if __name__ == "__main__":
+    
+    print(f"Searching for S2 files in: {BASE_DIR}")
+    image_paths_pred = sorted(glob.glob(os.path.join(BASE_DIR, 'pred_*_s2.tif')))
+    
+    print(f"Found {len(image_paths_pred)} files.")
+    plot_s2_grid(image_paths_pred, save_path=OUTPUT_FILENAME)
