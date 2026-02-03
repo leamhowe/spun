@@ -77,7 +77,7 @@ def calculate_binary_scores(y_true, y_pred, thresh=0.5):
     return {'acc': acc, 'prec': prec, 'rec': rec, 'f1': f1, 'dice': dice}
 
 def compute_metrics_package(y_true, y_pred):
-    """Computes comprehensive metrics: Continuous, Snow-Only, Binary (Std/Sens), and Area."""
+    """Computes comprehensive metrics: Continuous, Snow-Only (Union Mask), Binary, and Area."""
     if len(y_true) == 0:
         return None
     
@@ -85,16 +85,19 @@ def compute_metrics_package(y_true, y_pred):
     diff = y_pred - y_true
     mae = np.mean(np.abs(diff))
     rmse = np.sqrt(np.mean(diff**2))
-    bias = np.mean(diff) 
+    bias_global = np.mean(diff) 
     
-    # 2. Snow-Only Metrics (Errors calculated only on confirmed snow pixels)
-    mask_snow = y_true > 0
+    # 2. Snow-Only Metrics (Union Mask)
+    # Includes pixels where snow IS present (GT > 0) OR where model PREDICTS snow (Pred > 0)
+    mask_snow = (y_true >= 1.0) | (y_pred >= 1.0)
+    
     if mask_snow.any():
         diff_snow = y_pred[mask_snow] - y_true[mask_snow]
         mae_snow = np.mean(np.abs(diff_snow))
         rmse_snow = np.sqrt(np.mean(diff_snow**2))
+        bias_snow = np.mean(diff_snow) # Now calculated on union mask
     else:
-        mae_snow, rmse_snow = 0.0, 0.0
+        mae_snow, rmse_snow, bias_snow = 0.0, 0.0, 0.0
     
     # 3. Binary Metrics
     stats_50 = calculate_binary_scores(y_true, y_pred, thresh=0.5)
@@ -107,9 +110,10 @@ def compute_metrics_package(y_true, y_pred):
         'count': len(y_true),
         'mae': mae,
         'rmse': rmse,
-        'bias': bias,           
+        'bias_global': bias_global,           
         'mae_snow': mae_snow,
         'rmse_snow': rmse_snow,
+        'bias_snow': bias_snow, # Added to return dict
         'area_m2': total_area_m2, 
         'std': stats_50, 
         'sens': stats_01 
@@ -136,7 +140,6 @@ def main():
             # Construct Paths
             spun_path = os.path.join(SPUN_PREDICTIONS_DIR, f"{date_id}_{tile_id}_SPUN.zarr")
             lis_path  = os.path.join(LIS_PATCHES_DIR, f"{date_id}_{tile_id}_LIS.zarr")
-            # FIXED: Now looks for _SPUN.zarr (assuming typical generator output)
             ndsi_path = os.path.join(NDSI_DIR, f"{date_id}_{tile_id}_NDSI.zarr")
             wang_path = os.path.join(WANG_DIR, f"{date_id}_{tile_id}_Wang2022.zarr")
             
@@ -245,16 +248,18 @@ def main():
         
         def print_model_rows(name, m):
             if not m: return
+            # Row 1: Std Metrics + Snow MAE/RMSE
             log_print(row_fmt.format(f"{name} (>50%)", 
                                      f"{m['std']['rec']:.3f}", f"{m['std']['prec']:.3f}", 
                                      f"{m['std']['f1']:.3f}", f"{m['std']['dice']:.3f}", 
                                      f"{m['mae']:.3f}", f"{m['rmse']:.3f}", 
                                      f"{m['mae_snow']:.3f}", f"{m['rmse_snow']:.3f}"))
             
+            # Row 2: Sensitivity + Snow Bias
             log_print(row_fmt.format(f"{name} (>1%)", 
                                      f"{m['sens']['rec']:.3f}", f"{m['sens']['prec']:.3f}", 
                                      f"{m['sens']['f1']:.3f}", f"{m['sens']['dice']:.3f}", 
-                                     f"Bias:{m['bias']:.2f}", "-", "-", "-"))
+                                     f"Bias(S):{m['bias_snow']:.2f}", "-", "-", "-"))
 
         def print_scenario_block(title, m_sp, m_li, m_nd, m_wa, gt_area):
              if not m_sp: return

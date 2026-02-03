@@ -51,7 +51,9 @@ def upsample_lis(lis_arr):
     return np.repeat(np.repeat(lis_arr, 2, axis=0), 2, axis=1)
 
 def plot_heatmap_overlay(ax, rgb, data, cloud_mask, title):
-    """Plots RGB with Viridis Snow + Grey Cloud overlay."""
+    """Plots RGB with Viridis Snow + Grey Cloud overlay.
+    Restored: 0% Snow is rendered as semi-transparent Purple.
+    """
     ax.imshow(rgb)
     
     # 1. Snow (Viridis)
@@ -59,9 +61,11 @@ def plot_heatmap_overlay(ax, rgb, data, cloud_mask, title):
         norm_data = np.clip(data / 100.0, 0, 1)
         cmap = plt.cm.viridis
         overlay_rgba = cmap(norm_data)
+        
+        # Apply global alpha to the whole heatmap (including 0 values/purple)
         overlay_rgba[..., 3] = ALPHA 
         
-        # Mask snow if cloud exists
+        # Mask snow ONLY if cloud exists in the overlay mask
         if cloud_mask is not None:
             is_cloud = cloud_mask > 0
             overlay_rgba[is_cloud, 3] = 0.0
@@ -70,6 +74,9 @@ def plot_heatmap_overlay(ax, rgb, data, cloud_mask, title):
         is_nan = np.isnan(data)
         overlay_rgba[is_nan, 3] = 0.0
         
+        # NOTE: Removed the "is_empty = data < 1.0" check. 
+        # Now 0% snow will render as purple.
+
         ax.imshow(overlay_rgba)
 
     # 2. Clouds (Grey)
@@ -103,7 +110,13 @@ def main():
             spun_path = os.path.join(SPUN_PREDICTIONS_DIR, f"{date_id}_{tile_id}_SPUN.zarr")
             lis_path  = os.path.join(LIS_PATCHES_DIR, f"{date_id}_{tile_id}_LIS.zarr")
             ndsi_path = os.path.join(NDSI_DIR, f"{date_id}_{tile_id}_NDSI.zarr")
-            wang_path = os.path.join(WANG_DIR, f"{date_id}_{tile_id}_SPUN.zarr")
+            
+            # Wang Fallback
+            wang_path_v1 = os.path.join(WANG_DIR, f"{date_id}_{tile_id}_Wang2022.zarr")
+            wang_path_v2 = os.path.join(WANG_DIR, f"{date_id}_{tile_id}_SPUN.zarr")
+            if os.path.exists(wang_path_v1): wang_path = wang_path_v1
+            elif os.path.exists(wang_path_v2): wang_path = wang_path_v2
+            else: wang_path = None
 
             if not (os.path.exists(spun_path) and os.path.exists(lis_path)): continue
 
@@ -134,7 +147,7 @@ def main():
 
             # Wang
             wang_cloud = None
-            if os.path.exists(wang_path):
+            if wang_path and os.path.exists(wang_path):
                 z_wang = zarr.open(wang_path, mode='r')
                 wang_snow = z_wang['wang_scf'][:]
                 if 'wang_cloud' in z_wang:
@@ -142,12 +155,18 @@ def main():
             else:
                 wang_snow = np.zeros_like(spun_snow)
 
-            # Filter: Skip if image is empty of snow (optional)
-            has_snow = (gt_snow.max() > 0) or (spun_snow.mean() > 5) or (lis_snow.max() > 0)
+            # --- FILTER: UNION OF ALL PREDICTIONS ---
+            # Visualize if ANY method predicts snow > 1%
+            # Includes GT, Predictions, and Hallucinations
+            has_snow = (gt_snow.max() >= 1.0) or \
+                       (spun_snow.max() >= 1.0) or \
+                       (lis_snow.max() >= 1.0) or \
+                       (ndsi_snow.max() >= 1.0) or \
+                       (wang_snow.max() >= 1.0)
+            
             if not has_snow: continue
 
             # --- PLOTTING (1x6 ROW) ---
-            # figsize=(width, height). 24, 4 gives a nice aspect ratio for 6 squares.
             fig, axes = plt.subplots(1, 6, figsize=(24, 4))
             
             # 1. RGB
