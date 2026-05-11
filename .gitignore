@@ -8,5 +8,4 @@
 *.ckpt
 global_performance/scripts/plots/*results/
 __pycache__/
-
-
+*.zarr

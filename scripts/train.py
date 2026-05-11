@@ -18,59 +18,72 @@ warnings.filterwarnings("ignore",
 # --- CUSTOM IMPORTS ---
 from src.unet_torchgeo_combloss_lightning_trainer_13bands import SnowModel 
 from src.snow_s2_dataset_13bands import Snows2Dataset
-from src.config import get_data_root, MODELS_DIR, METRICS_DIR, WANDB_DIR
+from src.config import MODELS_DIR, METRICS_DIR, WANDB_DIR 
 
 torch.set_float32_matmul_precision('high')
 
 def get_args():
     parser = argparse.ArgumentParser(description="Run UNet model training.")
-    parser.add_argument('--model_name', type=str, default='unet_torchgeo_combloss', help='Model name for saving outputs')
-    parser.add_argument('--use_augmentations', action='store_true', help='Flag to enable image augmentations')
-    parser.add_argument('--bands', type=str, default='all_spectral_bands', help='Specify the bands to use in the model')
     
-    # Hyperparameters
-    parser.add_argument('--loss_fn', type=str, default='l1', help="Regression loss: 'l1', 'mse', or 'huber'")
-    parser.add_argument('--loss_weighting', type=str, default='none', help="Per-pixel weighting: 'none'|'binary'|'linear' | 'inverse_linear'")
-    parser.add_argument('--snow_weight', type=float, default=5.0, help='Weight for snow pixels')
-    parser.add_argument('--snow_thresh', type=float, default=0.05, help='Snow threshold in [0,1]')
-    parser.add_argument('--ignore_value', type=int, default=200, help='Ignore value in labels')
-    parser.add_argument('--train_with_clouds', action='store_true', help='Include clouds in training')
+    # Core Model Setup
+    parser.add_argument('--model_name', type=str, default='SPUN', help='Model name for saving outputs')
     parser.add_argument('--backbone', type=str, default='resnet50', help='Backbone model for the UNet')
     parser.add_argument('--weights', type=str, default=None, help='Pretrained weights for the backbone')
-    parser.add_argument('--lr', type=float, default=1e-3, help='Initial learning rate')
-    parser.add_argument('--dice_thresh', type=float, default=0.5, help='Binarization threshold for Dice score.')
-    parser.add_argument('--dice_loss_weight', type=float, default=0.5, help='Weight lambda for Dice loss in combined loss.')
-    parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training and validation')
-    parser.add_argument('--patience', type=int, default=20, help='Patience for early stopping')
-    parser.add_argument('--num_workers', type=int, default=4, help='Number of workers for DataLoader')
-    
-    # Environment Setup
-    parser.add_argument('--server', type=str, default='jasmin', help='Server preset: jasmin, pentland, or local')
-    parser.add_argument('--mask_fill_value', type=int, default=1, help='Fill value for padding the label dataset') 
-    parser.add_argument('--image_fill_value', type=int, default=0, help='Fill value for padding the image dataset')
-    parser.add_argument('--mask_clouds', action='store_true', help='Mask cloud pixels in the images')
-    parser.add_argument('--use_indices', action='store_true', help='Use indices in the dataset')
-    parser.add_argument('--dataset', type=str, default='cs_threshold_50', help='Dataset to use for training')
+    parser.add_argument('--bands', type=str, default='all_spectral_bands', help='Specify the bands to use in the model')
     parser.add_argument('--checkpoint_path', type=str, default=None, help='Path to resume training')
-    parser.add_argument('--data_root', type=str, default=None, help='Root directory containing data (overrides server preset)')
+    
+    # Data & Augmentation
+    parser.add_argument('--data_root', type=str, required=True, help='Root directory containing training data')
+    parser.add_argument('--split_file', type=str, default='dataset_metadata.csv', help='Path to a CSV file defining splits')
     parser.add_argument('--val_ratio', type=float, default=0.15, help='Validation split ratio')
     parser.add_argument('--test_ratio', type=float, default=0.15, help='Test split ratio')
     parser.add_argument('--split_seed', type=int, default=42, help='Random seed for dataset split')
-    parser.add_argument('--split_file', type=str, default=None, help='Path to a CSV file defining splits')
+    parser.add_argument('--use_augmentations', action='store_true', help='Flag to enable image augmentations')
+    parser.add_argument('--train_with_clouds', action='store_true', help='Include clouds in training')
+    parser.add_argument('--mask_clouds', action='store_true', help='Mask cloud pixels in the images')
+    
+    # Loss & Hyperparameters
+    parser.add_argument('--lr', type=float, default=1e-3, help='Initial learning rate')
+    parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training and validation')
+    parser.add_argument('--patience', type=int, default=20, help='Patience for early stopping')
+    parser.add_argument('--num_workers', type=int, default=4, help='Number of workers for DataLoader')
+    parser.add_argument('--loss_fn', type=str, default='l1', help="Regression loss: 'l1', 'mse', or 'huber'")
+    parser.add_argument('--loss_weighting', type=str, default='none', help="Per-pixel weighting: 'none'|'binary'|'linear'|'inverse_linear'")
+    parser.add_argument('--snow_weight', type=float, default=5.0, help='Weight for snow pixels')
+    parser.add_argument('--snow_thresh', type=float, default=0.05, help='Snow threshold in [0,1]')
+    parser.add_argument('--ignore_value', type=int, default=200, help='Ignore value in labels')
+    parser.add_argument('--dice_thresh', type=float, default=0.5, help='Binarization threshold for Dice score.')
+    parser.add_argument('--dice_loss_weight', type=float, default=0.5, help='Weight lambda for Dice loss in combined loss.')
     
     return parser.parse_args()
 
 
-def prepare_data_from_split_file(split_csv_path):
+def prepare_data_from_split_file(data_root, split_csv_path):
+    """
+    Reads the dataset metadata CSV and constructs absolute filepaths 
+    by joining the data_root with the relative paths in the CSV.
+    """
     if not os.path.exists(split_csv_path):
         raise FileNotFoundError(f"Split file not found: {split_csv_path}")
-    df = pd.read_csv(split_csv_path)
-    split_col = 'split_cleaned' if 'split_cleaned' in df.columns else 'split'
     
-    train_files = df[df[split_col] == 'Train']['filepath'].tolist()
-    val_files = df[df[split_col] == 'Validation']['filepath'].tolist()
-    test_files = df[df[split_col] == 'Test']['filepath'].tolist()
+    df = pd.read_csv(split_csv_path)
+    
+    # Check for the correct column names based on your Zenodo README
+    split_col = 'split' if 'split' in df.columns else 'split_cleaned'
+    path_col = 'relative_path' if 'relative_path' in df.columns else 'filepath'
+    
+    # Helper function to construct absolute paths
+    def get_abs_paths(split_name):
+        rel_paths = df[df[split_col] == split_name][path_col].tolist()
+        return [os.path.join(data_root, p) for p in rel_paths]
+
+    train_files = get_abs_paths('Train')
+    val_files = get_abs_paths('Validation')
+    test_files = get_abs_paths('Test')
+    
+    print(f"Loaded splits from CSV: {split_csv_path}")
     print(f"Total files: {len(train_files)+len(val_files)+len(test_files)} | Train: {len(train_files)} | Val: {len(val_files)} | Test: {len(test_files)}")
+    
     return train_files, val_files, test_files
 
 
@@ -135,11 +148,11 @@ def test_model(trainer, snow_model, test_files, bands, args, metrics_save_dir):
 def main():
     args = get_args()
 
-    # --- Use Config Paths (Replaces hardcoded Jasmin/Pentland logic) ---
-    data_root = args.data_root if args.data_root else str(get_data_root(args.server))
+    # Data root and output paths
+    data_root = args.data_root
     model_save_dir = str(MODELS_DIR)
     metrics_save_dir = str(METRICS_DIR)
-    
+        
     # Setup Weights & Biases Logger
     wandb_logger = WandbLogger(
         project="spun_scf",
@@ -149,14 +162,31 @@ def main():
     )
 
     # --- Prepare Data ---
-    if args.split_file:
-        train_files, val_files, test_files = prepare_data_from_split_file(split_csv_path=args.split_file)
+    
+    # If the user provides an absolute path, use it. Otherwise, look inside data_root.
+    if os.path.isabs(args.split_file):
+        split_file_path = args.split_file
     else:
-        print(f"Loading data from: {data_root}")
-        data_directories = [data_root, os.path.join(data_root, 'original_training_set_snow_urban_water')]
+        split_file_path = os.path.join(data_root, args.split_file)
+
+    if os.path.exists(split_file_path):
+        print(f"Loading data splits from: {split_file_path}")
+        train_files, val_files, test_files = prepare_data_from_split_file(
+            data_root=data_root, 
+            split_csv_path=split_file_path
+        )
+    else:
+        # Loud fallback to random splits
+        print(f"\n[WARNING] Split file not found at: {split_file_path}")
+        print("[WARNING] Falling back to a random dataset split...\n")
+        
+        data_directories = [data_root, os.path.join(data_root, 'original_training_set')]
         train_files, val_files, test_files = prepare_data_random(
-            data_directories, train_ratio=1.0 - args.val_ratio - args.test_ratio,
-            val_ratio=args.val_ratio, test_ratio=args.test_ratio, seed=args.split_seed
+            data_directories, 
+            train_ratio=1.0 - args.val_ratio - args.test_ratio,
+            val_ratio=args.val_ratio, 
+            test_ratio=args.test_ratio, 
+            seed=args.split_seed
         )
 
     # --- Define Bands ---
@@ -172,6 +202,8 @@ def main():
         'satlas_ms': ['B2','B3','B4','B5','B6','B7','B8','B11','B12']
     }
     bands = band_options.get(args.bands)
+    if bands is None:
+        raise ValueError(f"Band selection '{args.bands}' is not a valid predefined option.")
     
     model_hyperparams = {k: v for k, v in vars(args).items() if k in [
         "backbone", "weights", "loss_fn", "loss_weighting", "snow_weight", 

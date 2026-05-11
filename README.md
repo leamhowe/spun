@@ -1,6 +1,7 @@
-# SPUN SCF Training
+# A Snow Patch U-Net (SPUN)
 
-![](spun_logo.png)
+![](assets/spun_logo.png)
+
 
 ## Overview
 `train_lightning.py` trains a UNet-based regression model (PyTorch Lightning) to predict Snow Cover Fraction (SCF) from Sentinel-2 `.zarr` tiles.  
@@ -459,3 +460,44 @@ python train_lightning_combloss_13bands.py \
     --snow_weight 9.862176 \
     --snow_thresh 0.113775 \
     --dice_loss_weight 0.117788
+
+
+```python
+python train_lightning_combloss_13bands.py \
+    --model_name "Final_T15_dino_none_scale10000" \
+    --server "jasmin" \
+    --split_file "/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv" \
+    --use_augmentations \
+    --train_with_clouds \
+    --bands "all_spectral" \
+    --backbone "resnet50" \
+    --patience 50 \
+    --num_workers 24 \
+    --weights "sentinel2_dino" \
+    --batch_size 16 \
+    --lr 0.000118 \
+    --loss_fn "huber" \
+    --loss_weighting "none" \
+    --snow_thresh 0.399728 \
+    --dice_loss_weight 0.166421
+
+
+
+python -m scripts.train \
+    --model_name "Final_T15_dino_none_scale10000" \
+    --data_root "/home/users/leamhowe/sensecdt/1_DETECT/data/spun_dataset_zenodo/SPUN_Dataset" \
+    --split_file "dataset_metadata.csv" \
+    --use_augmentations \
+    --train_with_clouds \
+    --bands "all_spectral" \
+    --backbone "resnet50" \
+    --patience 50 \
+    --num_workers 24 \
+    --weights "sentinel2_all_dino" \
+    --batch_size 16 \
+    --lr 0.000118 \
+    --loss_fn "huber" \
+    --loss_weighting "none" \
+    --snow_thresh 0.399728 \
+    --dice_loss_weight 0.166421
+```
