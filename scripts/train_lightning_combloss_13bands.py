@@ -43,12 +43,10 @@ def get_args():
     parser.add_argument('--snow_thresh', type=float, default=0.05,
                         help='Snow threshold in [0,1] for binary weighting')
     
-    # --- UPDATED/ADDED ARGS ---
     parser.add_argument('--ignore_value', type=int, default=200,
                         help='Ignore value in labels (cloud/pad)')
     parser.add_argument('--train_with_clouds', action='store_true', 
                         help='Include clouds in training (relabel as 0% SCF).')
-    # --- END UPDATES ---
     
     parser.add_argument('--backbone', type=str, default='resnet50',
                         help='Backbone model for the UNet')

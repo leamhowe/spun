@@ -1,5 +1,7 @@
 # SPUN SCF Training
 
+![](spun_logo.png)
+
 ## Overview
 `train_lightning.py` trains a UNet-based regression model (PyTorch Lightning) to predict Snow Cover Fraction (SCF) from Sentinel-2 `.zarr` tiles.  
 Data are gathered from two directories:

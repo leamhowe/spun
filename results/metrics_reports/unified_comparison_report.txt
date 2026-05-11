@@ -1,0 +1,137 @@
+UNIFIED COMPARISON REPORT: SPUN vs WANG vs LIS
+================================================
+
+################################################
+PART 1: MAXIMUM AVAILABLE DATASET (6 TILES)
+################################################
+
+======================================================
+=== SPUN_MODEL RESULTS (6 TILES) ===
+======================================================
+
+[ 1. GLOBAL 3-CLASS EVALUATION ]
+Class        | Precision  | Recall     | F1-Score   | IoU       
+-----------------------------------------------------------------
+Background   | 0.9080     | 0.9419     | 0.9246     | 0.8598
+Cloud        | 0.9600     | 0.9946     | 0.9770     | 0.9550
+Snow         | 0.9557     | 0.8368     | 0.8923     | 0.8056
+-----------------------------------------------------------------
+MACRO AVG    | 0.9412     | 0.9244     | 0.9313     | 0.8735
+
+[ 2. SNOW-UNION ONLY EVALUATION ]
+Total pixels in Snow Union: 1,455,118
+True Positives: 1,172,183 | False Positives: 54,359 | False Negatives: 228,576
+
+Metric       | Score     
+-------------------------
+Precision    | 0.9557
+Recall       | 0.8368
+F1-Score     | 0.8923
+IoU          | 0.8056
+-------------------------
+
+======================================================
+=== WANG_METHOD RESULTS (6 TILES) ===
+======================================================
+
+[ 1. GLOBAL 3-CLASS EVALUATION ]
+Class        | Precision  | Recall     | F1-Score   | IoU       
+-----------------------------------------------------------------
+Background   | 0.9148     | 0.9503     | 0.9322     | 0.8730
+Cloud        | 0.9775     | 0.9853     | 0.9814     | 0.9635
+Snow         | 0.9420     | 0.8649     | 0.9018     | 0.8212
+-----------------------------------------------------------------
+MACRO AVG    | 0.9448     | 0.9335     | 0.9385     | 0.8859
+
+[ 2. SNOW-UNION ONLY EVALUATION ]
+Total pixels in Snow Union: 1,475,382
+True Positives: 1,211,585 | False Positives: 74,623 | False Negatives: 189,174
+
+Metric       | Score     
+-------------------------
+Precision    | 0.9420
+Recall       | 0.8649
+F1-Score     | 0.9018
+IoU          | 0.8212
+-------------------------
+
+
+################################################
+PART 2: DIRECT SUBSET COMPARISON (4 TILES)
+################################################
+
+======================================================
+=== SPUN_MODEL RESULTS (4 TILES) ===
+======================================================
+
+[ 1. GLOBAL 3-CLASS EVALUATION ]
+Class        | Precision  | Recall     | F1-Score   | IoU       
+-----------------------------------------------------------------
+Background   | 0.9503     | 0.9388     | 0.9445     | 0.8949
+Cloud        | 0.9295     | 0.9902     | 0.9589     | 0.9211
+Snow         | 0.9182     | 0.8395     | 0.8771     | 0.7811
+-----------------------------------------------------------------
+MACRO AVG    | 0.9327     | 0.9228     | 0.9268     | 0.8657
+
+[ 2. SNOW-UNION ONLY EVALUATION ]
+Total pixels in Snow Union: 676,631
+True Positives: 528,489 | False Positives: 47,093 | False Negatives: 101,049
+
+Metric       | Score     
+-------------------------
+Precision    | 0.9182
+Recall       | 0.8395
+F1-Score     | 0.8771
+IoU          | 0.7811
+-------------------------
+
+======================================================
+=== WANG_METHOD RESULTS (4 TILES) ===
+======================================================
+
+[ 1. GLOBAL 3-CLASS EVALUATION ]
+Class        | Precision  | Recall     | F1-Score   | IoU       
+-----------------------------------------------------------------
+Background   | 0.9639     | 0.9593     | 0.9616     | 0.9260
+Cloud        | 0.9596     | 0.9734     | 0.9665     | 0.9351
+Snow         | 0.9324     | 0.9216     | 0.9270     | 0.8639
+-----------------------------------------------------------------
+MACRO AVG    | 0.9520     | 0.9514     | 0.9517     | 0.9083
+
+[ 2. SNOW-UNION ONLY EVALUATION ]
+Total pixels in Snow Union: 671,582
+True Positives: 580,153 | False Positives: 42,044 | False Negatives: 49,385
+
+Metric       | Score     
+-------------------------
+Precision    | 0.9324
+Recall       | 0.9216
+F1-Score     | 0.9270
+IoU          | 0.8639
+-------------------------
+
+======================================================
+=== LIS_PRODUCT RESULTS (4 TILES) ===
+======================================================
+*** NOTE: NoData pixels from LIS are excluded from all metric calculations. ***
+
+[ 1. GLOBAL 3-CLASS EVALUATION ]
+Class        | Precision  | Recall     | F1-Score   | IoU       
+-----------------------------------------------------------------
+Background   | 0.9479     | 0.7145     | 0.8148     | 0.6875
+Cloud        | 0.6289     | 0.9578     | 0.7593     | 0.6119
+Snow         | 0.9122     | 0.7705     | 0.8354     | 0.7173
+-----------------------------------------------------------------
+MACRO AVG    | 0.8297     | 0.8143     | 0.8032     | 0.6722
+
+[ 2. SNOW-UNION ONLY EVALUATION ]
+Total pixels in Snow Union: 676,212
+True Positives: 485,044 | False Positives: 46,674 | False Negatives: 144,494
+
+Metric       | Score     
+-------------------------
+Precision    | 0.9122
+Recall       | 0.7705
+F1-Score     | 0.8354
+IoU          | 0.7173
+-------------------------

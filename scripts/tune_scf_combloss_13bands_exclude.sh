@@ -21,7 +21,6 @@ sleep $((RANDOM % 60))
 
 echo "Starting SLURM job array task ${SLURM_ARRAY_TASK_ID} for combloss tuning."
 
-# --- CHANGED: Updated Python command ---
 srun python -u /home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/scripts/tune_scf_combloss_13bands.py \
     --study-name "20251118_tune_scf_combloss_13bands_SCALE10000_softcon" \
     --weights "sentinel2_softcon" \
@@ -31,11 +30,7 @@ srun python -u /home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/scripts/tune_scf_
     --split_file "/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv" \
     --use_augmentations \
     --train_with_clouds 
-    # --- NEW: Add required split_file argument ---
-    
-    # --- NEW: Add fixed arguments for the study (optional, add/remove as needed) ---
     # --use_indices \
     # --mask_clouds
-    # -----------------------------------------------------------------------------
 
 echo "SLURM job array task ${SLURM_ARRAY_TASK_ID} finished."

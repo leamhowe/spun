@@ -6,4 +6,7 @@
 *.pth
 *.pt
 *.ckpt
-global_performance/scripts/plots/*
+global_performance/scripts/plots/*results/
+__pycache__/
+
+
