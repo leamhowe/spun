@@ -1,0 +1,10 @@
+==========================================================================================
+CLOUD CONFUSION ANALYSIS: Full Dataset (N=40) vs Subset (N=6)
+Metric: Clouds in GT are treated as 'No Snow' (0).
+==========================================================================================
+              Model      Dataset  Count  Precision  Recall  F1 Score  FP Rate
+No Mask (Raw Model) Full Dataset     40     0.6509  0.9191    0.7621   0.2433
+No Mask (Raw Model)  Test Subset      6     0.7232  0.8368    0.7758   0.0946
+    With Cloud Mask Full Dataset     40     0.8825  0.9175    0.8997   0.0580
+    With Cloud Mask  Test Subset      6     0.9557  0.8368    0.8923   0.0115
+==========================================================================================
