@@ -9,3 +9,5 @@ global_performance/scripts/plots/*results/
 __pycache__/
 *.zarr
 *.tif
+example_notebooks/old_geojsons
+example_notebooks/dev_notebooks
