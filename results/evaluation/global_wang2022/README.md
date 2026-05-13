@@ -1,12 +1,17 @@
-# Global Scene-Level Evaluation (Wang 2022 Dataset)
+# Global Evaluation (Wang 2022 Dataset)
 
-This directory contains the scripts and outputs for the **Scene-Level (Global) Evaluation** of the SPUN pipeline. Unlike the 1km × 1km chip-based evaluation, this pipeline assesses model performance across larger scenes (extracted from the [Wang et al. 2022](https://github.com/yiluyucheng/SnowCoverage/tree/main) test set).
+This directory contains the scripts and outputs for the **Global Evaluation** of the SPUN pipeline. Unlike the 1km × 1km chip-based evaluation, this pipeline assesses model performance across larger scenes (extracted from the [Wang et al. 2022](https://github.com/yiluyucheng/SnowCoverage/tree/main) test set).
 
 It also houses the ablation studies and sensitivity analyses used explore the impact of **CloudScore+** masking on SPUN's performance.
 
-These are the 40 image in the [Wang et al. 2022](https://github.com/yiluyucheng/SnowCoverage/tree/main) dataset:
+These are the 40 images in the [Wang et al. 2022](https://github.com/yiluyucheng/SnowCoverage/tree/main) dataset:
 
-![](../../../publication_plots/wang_dataest_s2_rgb_40_grid.png)
+![](../../../publication_plots/wang_dataest_s2_rgb_40_grid.png) 
+
+
+You can download them from here: https://github.com/yiluyucheng/SnowCoverage/tree/main/datasets/raw_images
+
+If you want to generate the SPUN predictions on this dataset, you will need to download this dataset.
 
 ## 📂 Directory Structure
 
@@ -17,15 +22,45 @@ global_wang2022/
 ├── cloud_sensitivity_output/        # Outputs: CloudScore+ threshold tuning plots/reports
 └── unified_global_comparison/       # Outputs: SPUN vs Wang vs LIS global metrics & CMs
 
+
 ```
 
 ---
 
 ## 🛠️ Scripts & Usage
 
-All scripts utilise `argparse` for dynamic execution and should be run from the root of this directory.
+If you want to recreate the SPUN predictions you will need to download the Wang et al., 2022 dataset and also have a Google Earth Engine (GEE) service account setup. Script 1 and 2 are based around using GEE credentials located within a json file, follow the instructions here to set up: https://developers.google.com/earth-engine/guides/service_account.
 
-### 1. Unified Global Comparison
+
+### 1. Generate Scene-Level Predictions
+
+**Script:** `scripts/generate_spun_scene_predictions.py`
+**Purpose:** Generates a continuous Snow Cover Fraction (SCF) prediction for a specific region of interest (defined by an input GeoTIFF). It queries Google Earth Engine for Sentinel-2 TOA and CloudScore+ data, runs batched overlapping GPU inference with the trained SPUN model, and saves the output GeoTIFF.
+
+```bash
+python scripts/generate_spun_scene_predictions.py \
+    --input_geotiff <path_to_raw_wang_image.tif> \
+    --output_geotiff <path_to_save_prediction.tif> \
+    --model_path <path_to_spun_weights.pt> \
+    --credentials_path <path_to_gee_service_account.json>
+
+```
+
+### 2. Batch Prediction Processing
+
+**Script:** `scripts/batch_generate_spun_scenes.py`
+**Purpose:** A utility wrapper to run the prediction script across an entire directory of input GeoTIFFs. This is the script used to process the full [40-image Wang 2022 dataset](https://github.com/yiluyucheng/SnowCoverage/tree/main/datasets/raw_images) in one go.
+
+```bash
+python scripts/batch_generate_spun_scenes.py \
+    --input_dir <path_to_wang_raw_images> \ # download from Wang 2022 github
+    --output_dir <path_to_save_predictions> \
+    --model_path <path_to_spun_weights.pt> \
+    --credentials_path <path_to_gee_service_account.json>
+
+```
+
+### 3. Unified Global Comparison
 
 **Script:** `scripts/unified_global_comparison.py`
 **Purpose:** Calculates comprehensive 3-Class (Snow, Cloud, Background) and Binary Snow metrics for SPUN, Wang 2022, and the Let It Snow (LIS) operational baseline. Evaluates on both the maximum 6-tile dataset and the 4-tile LIS subset. Generates a global text report and 10 distinct Confusion Matrices.
@@ -40,7 +75,7 @@ python scripts/unified_global_comparison.py \
 
 ```
 
-### 2. Cloud Mask Ablation Study
+### 4. Cloud Mask Ablation Study
 
 **Script:** `scripts/cloud_mask_ablation_study.py`
 **Purpose:** Quantifies the impact of integrating the CloudScore+ mask. Compares raw SPUN predictions (No Mask) against the final operational pipeline (With Cloud Mask) to measure reductions in False Positives caused by cloud confusion.
@@ -54,7 +89,7 @@ python scripts/cloud_mask_ablation_study.py \
 
 ```
 
-### 3. CloudScore+ Sensitivity Analysis
+### 5. CloudScore+ Sensitivity Analysis
 
 **Script:** `scripts/cloudscore_sensitivity_analysis.py`
 **Purpose:** Sweeps through `cs_cdf` (clear probability) thresholds from 0.1 to 0.9 to find the optimal cut-off for masking clouds without aggressively eroding True Positive snow pixels. Generates a text report and a visual sensitivity curve.
@@ -68,7 +103,7 @@ python scripts/cloudscore_sensitivity_analysis.py \
 
 ```
 
-### 4. 4-Row Visual Assessment
+### 6. 4-Row Visual Assessment
 
 **Script:** `scripts/plot_4row_assessment.py`
 **Purpose:** Generates a high-resolution, publication-ready grid visualising the 6 core test tiles. Rows display: (1) Gamma-corrected Sentinel-2 RGB, (2) Continuous Predicted SCF, (3) Binary Prediction Map, and (4) Ground Truth Label.
@@ -81,7 +116,7 @@ python scripts/plot_4row_assessment.py \
 
 ```
 
-### 5. Grid Visualisations
+### 7. Grid Visualisations
 
 **Scripts:** `scripts/plot_full_prediction_grid.py` & `scripts/plot_full_s2_image_grid.py`
 **Purpose:** Utility scripts for qualitative assessment. They generate massive 7-column grids showing either the categorical predictions or the brightened Sentinel-2 RGB inputs for all 40 full-scene tiles processed by the model.

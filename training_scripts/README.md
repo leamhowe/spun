@@ -11,6 +11,8 @@ The dataset used to train the SPUN (Snow Patch U-Net) model contains **2,455 Sen
 
 To train the model from scratch you need to download the dataset. More information and the full dataset can be found here: https://doi.org/10.5281/zenodo.20055817 
 
+![dataset map](../publication_plots/dataset_map.png)
+
 
 ### Optimal Run Command
 
@@ -20,7 +22,7 @@ Run the optimal configuration locally or via SLURM:
 
 ```bash
 python -m scripts.train \
-    --model_name "Final_T15_dino_none_scale10000" \
+    --model_name "SPUN" \
     --data_root "<path_to_zenodo_dataset>/SPUN_Dataset" \
     --split_file "dataset_metadata.csv" \
     --use_augmentations \

@@ -29,52 +29,21 @@ If you just want to load the pre-trained SPUN model and run predictions on Senti
 
 ## 🏋️ Training the Model
 
-Training is handled by `scripts/train.py`. The pipeline utilises Weights & Biases (`wandb`) for logging and Albumentations for data augmentation.
+You can download the trained model from here: https://doi.org/10.5281/zenodo.20055817 
 
-### The Dataset
-
-Unlike earlier iterations that performed on-the-fly random splits, the dataset is now strictly defined by a centralised metadata file (`dataset_metadata.csv`). This ensures perfectly reproducible Train/Val/Test boundaries.
-
-### Optimal Run Command
-
-Based on our extensive hyperparameter tuning and ablation studies, the optimal model utilises all 13 Sentinel-2 bands, a ResNet-50 backbone pre-trained with DINO, and a combined Huber + Dice loss function to balance continuous fraction prediction with sharp boundary delineation.
-
-Run the optimal configuration locally or via SLURM:
-
-```bash
-python -m scripts.train \
-    --model_name "Final_T15_dino_none_scale10000" \
-    --data_root "<path_to_zenodo_dataset>/SPUN_Dataset" \
-    --split_file "dataset_metadata.csv" \
-    --use_augmentations \
-    --train_with_clouds \
-    --bands "all_spectral" \
-    --backbone "resnet50" \
-    --weights "sentinel2_all_dino" \
-    --loss_fn "huber" \
-    --loss_weighting "none" \
-    --dice_loss_weight 0.166421 \
-    --snow_thresh 0.399728 \
-    --lr 0.000118 \
-    --batch_size 16 \
-    --num_workers 24 \
-    --patience 50
-
-```
-
-*Note: On JASMIN, you can submit this job using the provided SLURM wrapper: `sbatch scripts/train_lightning_jasmin.sh <run_name>*`
+If you want to train the model from scratch see [`training_scripts/README.md`](training_scripts/README.md) for more details.
 
 ## 📊 Evaluation Pipelines
 
-To ensure scientific rigor, SPUN is evaluated across two distinct environments. Please see the dedicated `README.md` files within each evaluation directory for specific bash commands and prerequisite data instructions.
+SPUN is evaluated across two distinct environments on the [Scotland dataset](https://doi.org/10.5281/zenodo.20055817) and also an independent global dataset ([Wang et al., 2022](https://github.com/yiluyucheng/SnowCoverage/tree/main)). Please see the dedicated `README.md` files within each evaluation directory for specific bash commands and prerequisite data instructions.
 
 ### 1. Scottish Highlands 1km Chip Evaluation
 
 **Location:** `results/evaluation/scotland/`
-Compares SPUN against LIS, NDSI, and Wang 2022 on 1km × 1km chips centered on highly complex, patchy terrain.
+Compares SPUN against LIS, NDSI, and Wang et al., 2022 on 1km × 1km chips centered on highly complex, patchy terrain.
 
-* **Multi-Resolution Evaluation:** Evaluates native 10m performance, then downscales to 20m for direct comparison with the operational LIS baseline under clear-sky and all-sky conditions.
-* **Hydrological Evaluation:** Assesses performance exclusively within the "Snow Union" mask (ignoring clear ground) to determine utility for downstream hydrological modeling.
+* **Multi-Resolution Evaluation:** Evaluates native 10m performance, then coarsens to 20m for direct comparison with the operational LIS baseline under clear-sky and all-sky conditions.
+* **Snow Covered Area Evaluation:** Assesses performance exclusively on the area of estimated snow cover per image chip to determine utility for downstream hydrological modeling.
 
 ### 2. Global Scene-Level Evaluation
 
@@ -93,4 +62,23 @@ It is highly recommended to run this repository within a dedicated Conda environ
 * `albumentations`
 * `zarr` & `xarray`
 * `rasterio` & `geopandas`
-* `wandb` (Set `export WANDB_MODE=offline` if working on a compute node without internet access).
+* `wandb` 
+
+I used [micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html) to create the environement used in development of SPUN. For Linux, macOS, or Git Bash on Windows install with: 
+
+```bash
+"${SHELL}" <(curl -L micro.mamba.pm/install.sh)
+```
+
+The environment can then be created using command:
+
+```bash
+micromamba env create -n nameofmyenv -f environment.yml 
+```
+
+## 🗺️ Roadmap & Ongoing Development
+
+We are actively working to expand SPUN's capabilities and make it easier to use:
+
+- [ ] Create tutorial notebooks.
+- [ ] Add script to generate snowmap directly from S2 tile identifier.
