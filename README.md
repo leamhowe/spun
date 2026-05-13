@@ -80,5 +80,6 @@ micromamba env create -n nameofmyenv -f environment.yml
 
 We are actively working to expand SPUN's capabilities and make it easier to use:
 
-- [ ] Create tutorial notebooks.
+- [x] Create a quick inference tutorial notebook.
+- [ ] Create additional tutorial notebooks, e.g create a now persistence map.
 - [ ] Add script to generate snowmap directly from S2 tile identifier.
