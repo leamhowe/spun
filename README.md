@@ -8,6 +8,15 @@
 
 Developed to handle the challenging marginal snow conditions and frequent cloud cover of the Scottish Highlands, SPUN leverages self-supervised pre-trained backbones (DINO) and a custom combined loss function (Huber + Dice) to generate high-resolution (10m) SCF maps.
 
+### Example use case - Cairngorms National Park snow persistence:
+
+As an example of the potential of SPUN, we mapped snow across the entire Sentinel-2 archive covering the Cairngorms National Park, Scotland. We used these maps to generate an estimate of snow persistence, normalising by cloud-free views (i.e., total snow views / total clear views for each pixel). The plot below shows a comparison of the estimated Snow Cover Duration (eSCD) in 2018 using the SPUN model (right) against the best currently available baseline, the UK Met Office HadUK product (left):
+
+![snow persistence cairngorms](assets/eSCD_SPUN_HadUK_comparison_CNP_2018.png)
+
+
+The SPUN persistence map effectively highlight both naturally occurring late-lying snow patches, such as Ciste Mhearad (Margaret's Coffin), and localised, wind-driven snow accumulation around the Cairngorm ski centre infrastructure. The sub-grid processes revealed here provide a much richer dataset for investigating localised exological and hydrological processes.
+
 ## 📂 Repository Structure
 
 The repository is organised to strictly separate source code, model training, and evaluation pipelines:
