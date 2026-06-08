@@ -68,7 +68,7 @@ def prepare_data_from_split_file(data_root, split_csv_path):
     
     df = pd.read_csv(split_csv_path)
     
-    # Check for the correct column names based on your Zenodo README
+    # Check for the correct column names 
     split_col = 'split' if 'split' in df.columns else 'split_cleaned'
     path_col = 'relative_path' if 'relative_path' in df.columns else 'filepath'
     

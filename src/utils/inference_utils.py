@@ -5,7 +5,7 @@ from torch.utils.data import Dataset, DataLoader
 from albumentations import Compose
 from albumentations.pytorch import ToTensorV2
 
-# Import your core model architecture
+# Import core model architecture
 from src.unet_torchgeo_combloss_lightning_trainer_13bands import SnowModel
 
 def instantiate_model(model_path, bands, backbone, device):

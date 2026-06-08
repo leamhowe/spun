@@ -9,7 +9,6 @@ def export_prediction_to_geotiff(prediction_np, date_str, roi, export_dir='expor
     """
     os.makedirs(export_dir, exist_ok=True)
     
-    # Use the custom prefix!
     export_path = os.path.join(export_dir, f"{prefix}_{date_str}.tif")
     
     bounds = roi.bounds().getInfo()['coordinates'][0]
