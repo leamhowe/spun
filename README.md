@@ -82,8 +82,30 @@ I used [micromamba](https://mamba.readthedocs.io/en/latest/installation/micromam
 The environment can then be created using command:
 
 ```bash
-micromamba env create -n nameofmyenv -f environment.yml 
+micromamba env create -n spun -f environment.yml 
 ```
+
+Once created there is a known issue of not installing the  `simsimd` library properly with micromamba, therefore run the below to install separately:
+```bash
+micromamba activate spun
+pip install simsimd
+```
+
+## Running example notebooks
+
+Once you have created and activated the spun environment (see above), you might need to register the environment as a kernel before it is detected as a jupyter environment: 
+
+```bash
+python -m ipykernel install --user --name=spun
+```
+
+Once registered as a kernel you will then be able to launch a jupyter lab environment. Simply run:
+
+```bash
+jupyter lab
+```
+
+and jupyterlab should be launched in your browser with the spun kernel available.
 
 ## 🗺️ Roadmap & Ongoing Development
 
