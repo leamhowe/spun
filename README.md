@@ -6,11 +6,15 @@
 
 **SPUN** (Snow Patch U-Net) is a deep learning pipeline built on PyTorch and TorchGeo, designed to predict continuous Snow Cover Fraction (SCF) from multi-spectral Sentinel-2 imagery.
 
-Developed to handle the challenging marginal snow conditions and frequent cloud cover of the Scottish Highlands, SPUN leverages self-supervised pre-trained backbones (DINO) and a custom combined loss function (Huber + Dice) to generate high-resolution (10m) SCF maps.
+SPUN was developed for mapping patchy late-season snow and snowpatches (decametre to hectarmetre scale features) in the Highlands of Scotland. Scotland has marginal snow conditions and frequent cloud cover providing a tough test for optical remote sensing. SPUN leverages self-supervised pre-trained backbones (DINO) and a custom combined loss function (Huber + Dice) to generate high-resolution (10m) SCF maps, and show strong generlisability outside the test domain. 
 
 ### Example use case - Cairngorms National Park snow persistence:
 
-As an example of the potential of SPUN, we mapped snow across the entire Sentinel-2 archive covering the Cairngorms National Park, Scotland. We used these maps to generate an estimate of snow persistence, normalising by cloud-free views (i.e., total snow views / total clear views for each pixel). The plot below shows a comparison of the estimated Snow Cover Duration (eSCD) in 2018 using the SPUN model (right) against the best currently available baseline, the UK Met Office HadUK product (left):
+As an example of the potential of SPUN, we mapped snow across the entire Sentinel-2 archive covering the Cairngorms National Park, Scotland. You can visualise these snowmaps here:
+
+- [Dashboard of SPUN snow cover maps for the Cairngorms, 2016-2026](https://leamhowe.github.io/assets/dashboards/CNP_snow_dashboard_QCflags_sunangle22_cloud80.html).
+
+We used these maps to generate an estimate of snow persistence, normalising by cloud-free views (i.e., total snow views / total clear views for each pixel). The plot below shows a comparison of the estimated Snow Cover Duration (eSCD) in 2018 using the SPUN model (right) against the best currently available baseline, the UK Met Office HadUK product (left):
 
 ![snow persistence cairngorms](assets/eSCD_SPUN_HadUK_comparison_CNP_2018.png)
 
@@ -115,3 +119,8 @@ We are actively working to expand SPUN's capabilities and make it easier to use:
 - [ ] Create additional tutorial notebooks, e.g create a snow persistence map.
 - [ ] Add script/example notebook to generate snowmap directly from S2 tile identifier.
 - [ ] Add other masks as an optional extra QC, e.g. water?
+- [ ] Add normalised DEM to training data
+
+## Known issues to overcome
+
+- SPUN is a *Snow Patch* U-Net. It was developed for mapping patchy late-season snow and snowpatches (decametre to hectarmetre scale features), and this is the [data](https://doi.org/10.5281/zenodo.20055817) it was trained on. Therefore, although it shows strong generalisation to complete snow cover, there are some issues with tough-to-identify examples that are far outside the training distribution. This includes when low-sun angles lead to harsh topographic and cloud shadows over complete snow cover, leading to very contrasting viewing conditions which SPUN struggles with --- **these issues are widely seen across optical snow mapping products**.
