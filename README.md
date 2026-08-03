@@ -8,9 +8,11 @@
 
 SPUN was developed for mapping patchy late-season snow and snowpatches (decametre to hectarmetre scale features) in the Highlands of Scotland. Scotland has marginal snow conditions and frequent cloud cover providing a tough test for optical remote sensing. SPUN leverages self-supervised pre-trained backbones (DINO) and a custom combined loss function (Huber + Dice) to generate high-resolution (10m) SCF maps, and show strong generlisability outside the test domain. 
 
+**You can read more details about the SPUN model in our preprint:** [https://egusphere.copernicus.org/preprints/2026/egusphere-2026-3163/](https://egusphere.copernicus.org/preprints/2026/egusphere-2026-3163/) 
+
 ### Example use case - Cairngorms National Park snow persistence:
 
-As an example of the potential of SPUN, we mapped snow across the entire Sentinel-2 archive covering the Cairngorms National Park, Scotland. You can visualise these snowmaps here:
+SPUN was designed for mapping snowpatches in the Scottish Highlands (as part of my PhD research studying these small decametre-scale features) but shows promise for wider applications in snow mapping and monitoring. As an example of the potential of SPUN, we mapped snow across the entire Sentinel-2 archive covering the Cairngorms National Park, Scotland. You can visualise these snowmaps here:
 
 - [leamhowe.github.io/spun](https://leamhowe.github.io/spun.html)
 <!-- - [Dashboard of SPUN snow cover maps for the Cairngorms, 2016-2026](https://leamhowe.github.io/assets/dashboards/CNP_snow_dashboard_QCflags_sunangle22_cloud80.html). -->
@@ -20,7 +22,7 @@ We used these maps to generate an estimate of snow persistence, normalising by c
 ![snow persistence cairngorms](assets/eSCD_SPUN_HadUK_comparison_CNP_2018.png)
 
 
-The SPUN persistence map effectively highlight both naturally occurring late-lying snow patches, such as Ciste Mhearad (Margaret's Coffin), and localised, wind-driven snow accumulation around the Cairngorm ski centre infrastructure. The sub-grid processes revealed here provide a much richer dataset for investigating localised exological and hydrological processes.
+The SPUN persistence map effectively highlight both naturally occurring late-lying snow patches, such as Ciste Mhearad (Margaret's Coffin), and localised, wind-driven snow accumulation around the Cairngorm ski centre infrastructure. The sub-grid processes revealed here provide a much richer dataset for investigating localised ecological and hydrological processes.
 
 ## 📂 Repository Structure
 
