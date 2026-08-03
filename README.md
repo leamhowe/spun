@@ -12,7 +12,8 @@ SPUN was developed for mapping patchy late-season snow and snowpatches (decametr
 
 As an example of the potential of SPUN, we mapped snow across the entire Sentinel-2 archive covering the Cairngorms National Park, Scotland. You can visualise these snowmaps here:
 
-- [Dashboard of SPUN snow cover maps for the Cairngorms, 2016-2026](https://leamhowe.github.io/assets/dashboards/CNP_snow_dashboard_QCflags_sunangle22_cloud80.html).
+- [leamhowe.github.io/spun](https://leamhowe.github.io/spun.html)
+<!-- - [Dashboard of SPUN snow cover maps for the Cairngorms, 2016-2026](https://leamhowe.github.io/assets/dashboards/CNP_snow_dashboard_QCflags_sunangle22_cloud80.html). -->
 
 We used these maps to generate an estimate of snow persistence, normalising by cloud-free views (i.e., total snow views / total clear views for each pixel). The plot below shows a comparison of the estimated Snow Cover Duration (eSCD) in 2018 using the SPUN model (right) against the best currently available baseline, the UK Met Office HadUK product (left):
 
@@ -116,11 +117,15 @@ and jupyterlab should be launched in your browser with the spun kernel available
 We are actively working to expand SPUN's capabilities and make it easier to use:
 
 - [x] Create a quick inference tutorial notebook.
+- [x] Create dashboard to visualise data for Cairngorms National Park.
 - [ ] Create additional tutorial notebooks, e.g create a snow persistence map.
 - [ ] Add script/example notebook to generate snowmap directly from S2 tile identifier.
 - [ ] Add other masks as an optional extra QC, e.g. water?
-- [ ] Add normalised DEM to training data
+- [ ] Add normalised DEM to training data (could help with topographic shadows)
+- [ ] Add SCL to training data?
 
-## Known issues to overcome
+## Known issues to overcome in future development
 
-- SPUN is a *Snow Patch* U-Net. It was developed for mapping patchy late-season snow and snowpatches (decametre to hectarmetre scale features), and this is the [data](https://doi.org/10.5281/zenodo.20055817) it was trained on. Therefore, although it shows strong generalisation to complete snow cover, there are some issues with tough-to-identify examples that are far outside the training distribution. This includes when low-sun angles lead to harsh topographic and cloud shadows over complete snow cover, leading to very contrasting viewing conditions which SPUN struggles with --- **these issues are widely seen across optical snow mapping products**.
+- SPUN is a *Snow Patch* U-Net. It was developed for mapping patchy late-season snow and snowpatches (decametre to hectarmetre scale features), and this is the [data](https://doi.org/10.5281/zenodo.20055817) it was trained on. Therefore, although it shows strong generalisation to complete snow cover, there are some issues with tough-to-identify examples that are far outside the training distribution. This includes when **low-sun angles** lead to **harsh topographic and cloud shadows** over complete snow cover, leading to very contrasting viewing conditions which SPUN struggles with --- **these issues are widely seen across optical snow mapping products.**
+- Occasional water speckle misclassification - can be overcome with water mask (e.g. [ESA WorldCover](https://developers.google.com/earth-engine/datasets/catalog/ESA_WorldCover_v200#bands)) but future versions could include a water class.
+- Snow and ice, and snow on ice. Not so much of an issue in Scotland (execept when frozen lakes have snow on them) but snow on glaciers is really useful to be able to separate (e.g. as a proxy for ELA).
