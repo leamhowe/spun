@@ -11,3 +11,4 @@ __pycache__/
 *.tif
 example_notebooks/old_geojsons
 example_notebooks/dev_notebooks.ipynb_checkpoints/
+example_notebooks/dev_notebooks
