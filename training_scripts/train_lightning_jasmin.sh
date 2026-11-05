@@ -29,9 +29,10 @@ echo "Running on node: $HOSTNAME"
 echo "=========================================================="
 
 # Run the Python script with the optimal hyperparameter configuration
+# Note: Adjust the paths and parameters as necessary for your specific setup.
 srun python -u train.py \
     --model_name "$model_name" \
-    --data_root "/home/users/leamhowe/sensecdt/1_DETECT/data/spun_dataset_zenodo/SPUN_Dataset" \
+    --data_root "<path/to/SPUN_Dataset>" \
     --split_file "dataset_metadata.csv" \
     --use_augmentations \
     --train_with_clouds \

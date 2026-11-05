@@ -10,4 +10,4 @@ __pycache__/
 *.zarr
 *.tif
 example_notebooks/old_geojsons
-example_notebooks/dev_notebooks
+example_notebooks/dev_notebooks.ipynb_checkpoints/

@@ -166,7 +166,7 @@ def get_args():
     """Parses command line arguments."""
     parser = argparse.ArgumentParser(description='Hyperparameter tuning for SCF U-Net with Combined Loss')
     parser.add_argument('--trials', type=int, default=100, help='Total number of trials goal for study (used for info log)')
-    parser.add_argument('--output-dir', type=str, default='/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/spun-scf/combloss_tuning', help='Directory to save tuning results')
+    parser.add_argument('--output-dir', type=str, default='output/combloss_tuning', help='Directory to save tuning results')
     parser.add_argument('--study-name', type=str, default='scf-unet-combloss-tuning-rmse-dice-clouds-cond', help='Name for the Optuna study') # Added '-cond'
     parser.add_argument('--split_file', type=str, required=True, help='Path to a CSV file defining train/val/test splits')
     parser.add_argument('--epochs', type=int, default=75, help='Max epochs per trial') # Increased epochs

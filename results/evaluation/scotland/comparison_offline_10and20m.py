@@ -225,7 +225,8 @@ def main():
             print(text)
             f.write(text + "\n")
             
-        row_fmt = "{:<10} | {:<7} | {:<7} | {:<7} | {:<7} | {:<7} | {:<7} | {:<7} | {:<7}"
+        row_fmt = "{:<10} | {:<7} | {:<7} | {:<7} | {:<7} | {:<7} | {:<7} | {:<7} | {:<7} | {:<7}"
+
 
         def print_full_tier(title, dataset, pixel_area):
             if not dataset.get('gt') is not None: return
@@ -233,7 +234,7 @@ def main():
             log("="*120)
             
             # 1. Main Metrics Table
-            log(row_fmt.format("Model", "Rec", "Prec", "F1", "MAE", "RMSE", "MAE(S)", "RMSE(S)", "Bias(S)"))
+            log(row_fmt.format("Model", "Rec", "Prec", "F1", "MAE", "RMSE", "Bias", "MAE(S)", "RMSE(S)", "Bias(S)"))
             log("-" * 120)
             
             gt_all = dataset['gt']
@@ -248,9 +249,9 @@ def main():
                 metrics_store[k] = m
                 
                 log(row_fmt.format(
-                    k.upper(), 
+                    k.upper(),
                     f"{m['std']['rec']:.3f}", f"{m['std']['prec']:.3f}", f"{m['std']['f1']:.3f}",
-                    f"{m['mae']:.3f}", f"{m['rmse']:.3f}", 
+                    f"{m['mae']:.3f}", f"{m['rmse']:.3f}", f"{m['bias']:+.3f}",
                     f"{m['mae_snow']:.2f}", f"{m['rmse_snow']:.2f}", f"{m['bias_snow']:.2f}"
                 ))
             

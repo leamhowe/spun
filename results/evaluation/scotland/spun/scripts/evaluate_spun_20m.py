@@ -8,14 +8,14 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score, confusion_matrix
 
 # Add scripts directory to path to find custom src modules
-sys.path.append('/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/scripts') 
+sys.path.append('../../../../..')  # adjust path as necessary to point to the src directory
 from src.unet_torchgeo_combloss_lightning_trainer_13bands import SnowModel
 from src.snow_s2_dataset_13bands import Snows2Dataset
 
 # --- CONFIGURATION ---
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-MODEL_PATH = '/home/users/leamhowe/sensecdt/users/leamhowe/1_DETECT/ml/unet/models/Final_T15_dino_none_scale10000_best.pt'
-SPLIT_CSV = '/home/users/leamhowe/phd/1_DETECT/SPUN/spun-scf/dev_notebooks/dataset_splits_cleaned_reassigned.csv'
+MODEL_PATH = '../../SPUN.pt' # download from Zenodo: https://zenodo.org/records/20055817
+SPLIT_CSV = '<path/to/SPUN_dataset>/dataset_metadata.csv' # download from Zenodo: https://zenodo.org/records/20055817
 BANDS = ['B1','B2','B3','B4','B5','B6','B7','B8','B8A','B9','B10','B11','B12']
 BACKBONE = 'resnet50'
 BATCH_SIZE = 4
